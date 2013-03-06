@@ -14,7 +14,7 @@ var _mysql = require("mysql");
 var _HOST = "dbsrv1.cdf.toronto.edu";
 var _PORT = "3306"; // standard sql PORT
 var _USER = "{cdf_user_name}";
-var _PASS = "{assigned_password";
+var _PASS = "{assigned_password}";
 var DATABASE = "csc309h_{cdf_user_name}"; // this database? or a2.sql we created?
 
 var mysql = _mysql.createClient({
@@ -65,6 +65,9 @@ http.createServer(function(req, res) {
 			// we need to keep track of increments per hour, which is done by time_stamp table.
 			
 			// note to Allen: if we have primary key for url in image table... how are we taking care of multiple images in one url?
+			
+			// retrieve info about the posts that this blogger 'liked' or 'reblogged'
+			// /like tumblr API will help us with this step.
 			
 			databse("INSERT", data); // template
 			
