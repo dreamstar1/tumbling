@@ -1,4 +1,5 @@
 var sys = require("sys");
+var tumblr = require('./node-v0.8.18-linux-x86/bin/node_modules/tumblr').Tumblr;
 http = require("http");
 
 PORT = 0;
@@ -9,13 +10,18 @@ MIME_TYPES ={
 	'.txt': 'text/plain'
 };
 
+//handling tumblr
+var KEY = 'VdAQkUPDY46fUmqRVGqRCY3ncJvrx6SDKAl5bQN7Tw2xZgxeY9';
+
 // Handling Database
 var _mysql = require("mysql");
 var _HOST = "dbsrv1.cdf.toronto.edu";
 var _PORT = "3306"; // standard sql PORT
 var _USER = "{cdf_user_name}";
 var _PASS = "{assigned_password}";
-var DATABASE = "csc309h_{cdf_user_name}"; // this database? or a2.sql we created?
+var DATABASE = "csc309h_{cdf_user_name}"; // this database? or a2.sql we created? 
+											/* we'll have to run a2.sql just 
+											 * once on csc309h_{cdf_user_name} to create the tables */
 
 var mysql = _mysql.createClient({
 	host: _HOST,
@@ -33,7 +39,7 @@ function database(cmd, data) {
 	// How will the data be inserted? one by one? or rearrange the data so that we can insert at once
 	if (cmd == "INSERT") {
 		mysql.query('insert into ' + TABLENAME + ' values ' + ORGANIZED_DATA, 
-		functiong selectCb(err, results, fields) {
+		function selectCb(err, results, fields) {
 			if (err) throw err;
 			else console.log("successfully inserted into database");
 		});
@@ -65,6 +71,10 @@ http.createServer(function(req, res) {
 			// we need to keep track of increments per hour, which is done by time_stamp table.
 			
 			// note to Allen: if we have primary key for url in image table... how are we taking care of multiple images in one url?
+				/* I got rid of that table since the prof posted: 
+				 * "How you describe those posts is up to you"...
+				 * and "You will have to return an image and a text". 
+				 * I understand this to mean we need to just return one image and we pick which one */
 			
 			// retrieve info about the posts that this blogger 'liked' or 'reblogged'
 			// /like tumblr API will help us with this step.
