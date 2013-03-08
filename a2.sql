@@ -7,15 +7,16 @@ create table blog (
 create table post (
 	url varchar(50) primary key,
 	txt varchar(50),
+	img varchar(50),
 	dt date not null,
 	last_track date not null,
 	last_count integer not null
 );
 
--- images associated with posts
+-- store image and post associated with it
 create table image (
-  url varchar primary key,
-  post foreign key references post(url)
+  url varchar(50),
+  post varchar(50) references post(url)
 );
 
 -- time stamp assiciated with posts
