@@ -70,7 +70,14 @@ function insertBlog(hostname) {
  */
 function insertIntoDB(tbl, field, value) {
 	console.log("about to insert");
-	mysql.query('insert into ' + tbl + '(' + field + ') values (' + data + ');');
+	mysql.query("insert into " + tbl + " (" + field + ") values ('" + value + "')", function selectCb(error, results, fields) {
+      if (error) {
+          console.log('GetData Error: ' + error.message);
+          mysql.end();
+          return;
+      }
+ });
+console.log("inserted");
 }
 
 function getInfoFromDB(tbl, field, value) {
