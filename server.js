@@ -14,12 +14,12 @@ MIME_TYPES ={
 var KEY = 'VdAQkUPDY46fUmqRVGqRCY3ncJvrx6SDKAl5bQN7Tw2xZgxeY9';
 
 // Handling Database
-var _mysql = require("mysql");
+var _mysql = require("./node-v0.8.18-linux-x86/bin/node_modules/mysql");
 var _HOST = "dbsrv1.cdf.toronto.edu";
 var _PORT = "3306"; // standard sql PORT
-var _USER = "{cdf_user_name}";
-var _PASS = "{assigned_password}";
-var DATABASE = "csc309h_{cdf_user_name}"; // this database? or a2.sql we created? 
+var _USER = "g1sigal";
+var _PASS = "lohbiari";
+var DATABASE = "csc309h_g1sigal"; // this database? or a2.sql we created? 
 											/* we'll have to run a2.sql just 
 											 * once on csc309h_{cdf_user_name} to create the tables */
 // db tables
@@ -28,7 +28,7 @@ var POST_TBL = "post";
 var IMAGE_TBL = "image";
 var TMSTMP_TBL = "time_stamp";
 
-var mysql = _mysql.createClient({
+var mysql = _mysql.createConnection({
 	host: _HOST,
 	port: _PORT,
 	user: _USER,
@@ -60,12 +60,21 @@ function database(cmd, data) {
 	}
 }
 
+function insertBlog(hostname) {
+	insertIntoDB(BLOG_TBL, "url", hostname);
+}
+
 /*
  * Insert into database information in the form of:
  * (table name, field name, value to insert)
  */
 function insertIntoDB(tbl, field, value) {
-	mysql.query('insert into ' + tbl + '(' + field + ') values (' + data + ')');
+	console.log("about to insert");
+	mysql.query('insert into ' + tbl + '(' + field + ') values (' + data + ');');
+}
+
+function getInfoFromDB(tbl, field, value) {
+	mysql.query('select ');
 }
 
 /*
@@ -83,19 +92,20 @@ function insertLikes(hostname) {
 	request.get({url:'http://api.tumblr.com/v2/blog/'+hostname+'/likes?api_key='+KEY, json:true}, function (error, response, body) {
 		if (!error) {
 			var post;
-			for (var i=0; i<body.response.liked_count; i++) {
+			for (var i=0; i<JSON.stringify(body.response.liked_count); i++) {
 				post = body.response.liked_posts[i];
 				var post_url = JSON.stringify(post.post_url);
-				if(!exists_in_db(POST_TBL, "url", post_url)) {
+				insertIntoDB(POST_TBL, "url", "test");
+				//if(!exists_in_db(POST_TBL, "url", post_url)) {
 				  // insert into 'post' table all relavent info
-				  insertIntoDB(POST_TBL, "url", JSON.stringify(post.post_url)); // insert url
+				insertIntoDB(POST_TBL, "url", JSON.stringify(post.post_url)); // insert url
 				  // insert text
 				  // insert image
-				  insertIntoDB(POST_TBL, "date", JSON.stringify(post.date)); // insert date
-				}
+				insertIntoDB(POST_TBL, "date", JSON.stringify(post.date)); // insert date
+				
 			}
 		}
-	} 
+	}) 
 }
 
 // Server that will handle each events
@@ -121,7 +131,12 @@ http.createServer(function(req, res) {
 			// retrieve info about the posts that this blogger 'liked' or 'reblogged'
 			// /like tumblr API will help us with this step.
 			
-			databse("INSERT", data); // template
+			//databse("INSERT", data); // template
+			mysql.connect();
+			console.log("about to insert likes");
+			insertLikes("noalglais.tumblr.com");
+			console.log("inserted likes");
+			mysql.end();
 			
 			res.writeHead(200);
 			res.end();
