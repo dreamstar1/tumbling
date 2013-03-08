@@ -1,8 +1,8 @@
 var sys = require("sys");
-var tumblr = require('./node-v0.8.18-linux-x86/bin/node_modules/tumblr').Tumblr;
+var request = require('./node-v0.8.18-linux-x86/bin/node_modules/request');
 http = require("http");
 
-PORT = 0;
+PORT = 31355;
 
 MIME_TYPES ={
 	'.html': 'text/html',
@@ -22,6 +22,11 @@ var _PASS = "{assigned_password}";
 var DATABASE = "csc309h_{cdf_user_name}"; // this database? or a2.sql we created? 
 											/* we'll have to run a2.sql just 
 											 * once on csc309h_{cdf_user_name} to create the tables */
+// db tables
+var BLOG_TBL = "blog";
+var POST_TBL = "post";
+var IMAGE_TBL = "image";
+var TMSTMP_TBL = "time_stamp";
 
 var mysql = _mysql.createClient({
 	host: _HOST,
@@ -54,6 +59,45 @@ function database(cmd, data) {
 		}
 	}
 }
+
+/*
+ * Insert into database information in the form of:
+ * (table name, field name, value to insert)
+ */
+function insertIntoDB(tbl, field, value) {
+	mysql.query('insert into ' + tbl + '(' + field + ') values (' + data + ')');
+}
+
+/*
+ * Return true if value exists in db table under field
+ */
+function exists_in_db(tbl, field, value) {
+  //TODO: implement me
+}
+
+/*
+ * Insert into db info about liked posts of a blog specified by 'hostname'
+ * TODO: figure out what is 'text' and how to handle images
+ */
+function insertLikes(hostname) {
+	request.get({url:'http://api.tumblr.com/v2/blog/'+hostname+'/likes?api_key='+KEY, json:true}, function (error, response, body) {
+		if (!error) {
+			var post;
+			for (var i=0; i<body.response.liked_count; i++) {
+				post = body.response.liked_posts[i];
+				var post_url = JSON.stringify(post.post_url);
+				if(!exists_in_db(POST_TBL, "url", post_url)) {
+				  // insert into 'post' table all relavent info
+				  insertIntoDB(POST_TBL, "url", JSON.stringify(post.post_url)); // insert url
+				  // insert text
+				  // insert image
+				  insertIntoDB(POST_TBL, "date", JSON.stringify(post.date)); // insert date
+				}
+			}
+		}
+	} 
+}
+
 // Server that will handle each events
 http.createServer(function(req, res) {
 	if (req.method == 'POST') {
@@ -63,18 +107,16 @@ http.createServer(function(req, res) {
 			// RESPONSE: HTTP status 200 if accepted.
 			
 			// How do we retrieve data from a blog by {base-hostname}?
+				/* see insertLikes function */
 			// what is {base-hostname}? given to us?
-			
+				/* i think it's safe to assume it's given to us in the request */
 			// data to retrieve...
 			// 	URL, DATE, IMAGE or TEXT (something that describes the post), NOTE_COUNT
 			
 			// we need to keep track of increments per hour, which is done by time_stamp table.
 			
 			// note to Allen: if we have primary key for url in image table... how are we taking care of multiple images in one url?
-				/* I got rid of that table since the prof posted: 
-				 * "How you describe those posts is up to you"...
-				 * and "You will have to return an image and a text". 
-				 * I understand this to mean we need to just return one image and we pick which one */
+				/* changed so that it's no longer a primary key */
 			
 			// retrieve info about the posts that this blogger 'liked' or 'reblogged'
 			// /like tumblr API will help us with this step.
