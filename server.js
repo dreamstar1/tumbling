@@ -1,7 +1,7 @@
 var sys = require("sys");
 var request = require('./node-v0.8.18-linux-x86/bin/node_modules/request');
 http = require("http");
-
+qs = require("querystring");
 PORT = 31355;
 
 MIME_TYPES ={
@@ -200,12 +200,26 @@ function getTrendInfo(basename, order, limit, method_type) {
 /*************************** SERVER THAT WILL HANDLE EACH EVENT ***************************/
 
 // QUESTION: how do we get the parameters and how are they formatted?
+//curl -X POST -d blog=fastcompany.tumblr.com http://localhost:31355/blog
+//node-v0.8.18-linux-x86/bin/node server.js
+// mysql -p -h dbsrv1 -u g1sigal csc309h_g1sigal
+
 http.createServer(function(req, res) {
 	if (req.url == '/') {
 		insertLikes("noalglais.tumblr.com");
 	}
 	if (req.method == 'POST') {
 		if (req.url == '/blog') {
+		  console.log(req.url);
+		 
+		var id = "";
+		// Load reply info.
+		req.on('data', function(buf){
+		id += buf.toString();
+		});
+		var jason = qs.stringify(id);
+		console.log(jason.message);
+
 			// parameter: blog
 			//            a string indicating a new blog to track by its {base-hostname}
 			// RESPONSE: HTTP status 200 if accepted.
@@ -227,9 +241,9 @@ http.createServer(function(req, res) {
 
 			//databse("INSERT", data); // template
 
-			insertBlog(hostname); // insert blog to host
+			//insertBlog(hostname); // insert blog to host
 
-			res.writeHead(200);
+			res.writeHead(200, "OK", {'Content-Type': 'text/html'});
 			res.end();
 		}
 	} else if (req.method == 'GET') {
