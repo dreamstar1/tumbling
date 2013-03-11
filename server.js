@@ -36,59 +36,71 @@ var mysql = _mysql.createConnection({
 });
 mysql.query('use ' + DATABASE);
 
-function database(cmd, data) {
-	// what will be the type of 'data' parameter? JSON?
-	// depends on how we retrieve data from tumblr.
+mysql.connect(function(error, results) {
+	if(error) {
+		console.log('Connection Error: ' + error.message);
+		return;
+	}
+	console.log('Connected to database');
+});
+
+
+/*************************** FUNCTION FOR DATABASE INTERACTION ***************************/
+
+function database(cmd, tbl, field, value) {
 	
-	// Inserting into the database.
-	// How will the data be inserted? one by one? or rearrange the data so that we can insert at once
 	if (cmd == "INSERT") {
-		mysql.query('insert into ' + TABLENAME + ' values ' + ORGANIZED_DATA, 
-		function selectCb(err, results, fields) {
-			if (err) throw err;
-			else console.log("successfully inserted into database");
-		});
-	// Retrieving data from the database.
-	// How wil this be done? Select which query we will use
-	} else if (cmd == "GET") {
-		mysql.query('select ' + SQL_QUERY), function (err, result, fields) {
-			if (err) throw err;
-			else {
-				// do something with the result and return to the main server.
+		mysql.query("insert into " + tbl + " (" + field + ") values ('" + value + "')", 
+					function (error, results, fields) {
+			if (error) {
+				console.log('Insert Error: ' + error.message);
+				mysql.end();
+				return;
 			}
+			console.log("inserted " + value);
+		});
+
+	} else if (cmd == "GET") {
+		mysql.query("select * from " + tbl + " where " + field + "=" + value, function (error, results, fields) {
+			if (error) {
+				console.log('Select Error: ' + error.message);
+				mysql.end();
+				return;
+			}
+			if (results.length > 0) {
+				mysql.callback(results);
+			}
+		});
+	}
+	else if (cmd == "EXISTS") {
+		mysql.query("select exists(select * from " + tbl + " where " + field + " = '" + value + "')", function (error, results, fields) {
+		if (error) {
+			console.log('Exists Error: ' + error.message);
+			mysql.end();
+			return;
 		}
+		else if (results[0] == 1) {
+			console.log(mysql.callback(results[0]));
+			return true;
+		}
+		else {
+			console.log(mysql.callback(results[0]));
+			return false;
+		}
+	});
 	}
 }
 
+
+/*************************** POST METHOD FUNCTIONS ***************************/
+
+/*
+ * Insert a blog URL into database
+ */
 function insertBlog(hostname) {
-	insertIntoDB(BLOG_TBL, "url", hostname);
-}
-
-/*
- * Insert into database information in the form of:
- * (table name, field name, value to insert)
- */
-function insertIntoDB(tbl, field, value) {
-	console.log("about to insert");
-	mysql.query("insert into " + tbl + " (" + field + ") values ('" + value + "')", function selectCb(error, results, fields) {
-      if (error) {
-          console.log('GetData Error: ' + error.message);
-          mysql.end();
-          return;
-      }
- });
-console.log("inserted");
-}
-
-function getInfoFromDB(tbl, field, value) {
-	mysql.query('select ');
-}
-
-/*
- * Return true if value exists in db table under field
- */
-function exists_in_db(tbl, field, value) {
-  //TODO: implement me
+	console.log("inserting");
+	database("INSERT", BLOG_TBL, "url", hostname);
+	console.log("inserted");
 }
 
 /*
@@ -101,50 +113,122 @@ function insertLikes(hostname) {
 			var post;
 			for (var i=0; i<JSON.stringify(body.response.liked_count); i++) {
 				post = body.response.liked_posts[i];
-				var post_url = JSON.stringify(post.post_url);
-				insertIntoDB(POST_TBL, "url", "test");
-				//if(!exists_in_db(POST_TBL, "url", post_url)) {
-				  // insert into 'post' table all relavent info
-				insertIntoDB(POST_TBL, "url", JSON.stringify(post.post_url)); // insert url
-				  // insert text
-				  // insert image
-				insertIntoDB(POST_TBL, "date", JSON.stringify(post.date)); // insert date
 				
+				if(!database("EXISTS", POST_TBL, "url", JSON.stringify(post.post_url))) {
+				    //insert into 'post' table all relavent info
+				    database("INSERT", POST_TBL, "url", JSON.stringify(post.post_url)); // insert url
+				    //insert text
+				    //insert image
+					database("INSERT", POST_TBL, "dt", JSON.stringify(post.date)); // insert date
+				}
 			}
 		}
 	}) 
 }
 
-// Server that will handle each events
+/*************************** GET METHODS FUNCTIONS ***************************/
+/*** GET /blog/{base-hostname}/trends is method_type 1 ***/
+/*** GET /blog/{base-hostname}/trends IS method_type 2 ***/
+
+/*
+ * Return post information in JSON format
+ */
+function getPostInfo(post_url) {
+
+	var trending = { "url": "", "text": "", "image": "", "date": "", "last_track": "", "last_count": 0, "tracking": []};
+	
+	// get the posts associated with hostname
+	var post = database("GET", POST_TBL, "url", post_url);
+		
+	trending.url = post[0].url;
+	trending.text = post[0].txt;
+	trending.image = post[0].img;
+	trending.date = post[0].dt;
+	trending.last_track = post[0].last_track;
+	trending.last_count = post[0].last_count;
+	
+	// get the trackings associated with the post
+	var tracking = database("GET", TMSTMP_TBL, "url", post_url);
+	for (var i=0; i<tracking.length; i++) {
+		var track = {"timestamp": "", "sequence": 0, "increment": 0, "count": 0 }
+			
+		track.timestamp = tracking[i].ts;
+		track.sequence = tracking[i].seq;
+		track.increment = tracking[i].inc;
+		track.count = tracking[i].cnt;
+			
+		trending.tracking.push(track);
+	}
+
+	return trending;
+}
+
+/*
+ * Return trend information specified by a basename in JSON format
+ */
+function getTrendInfo(basename, order, limit, method_type) {
+	var trends = {"trending": [], "order" : order, "limit" : limit};
+	
+	var posts = new Array();
+	if (method_type == 1) { // method is GET /blog/{base-hostname}/trends
+		// get post urls that are related to a specific basename (blog)
+		posts = database("GET", POST_TBL, "blog_url", basename);
+	
+	} else { // method is  GET /blog/trends 
+		// get all posts that exist in the database
+		posts = database("GET", POST_TBL, "url", POST_TBL);
+	}
+	
+	// when we get to figuring out order we're gonna need this
+	/*
+	var filteredPosts = new Array();
+	if (order == "Trending") {
+		filteredPosts = filterByTrending(posts);
+	} else {
+		filteredPosts = filterByRecent(posts);
+	}*/
+	
+	// change 'posts' to filteredPosts after filtering functions are implemented
+	for (var i=0; i<posts.length; i++) {
+		var post = getPostInfo(posts[i].url);
+		trends.trending.push(post);
+	}
+	
+	return trends;
+}
+
+/*************************** SERVER THAT WILL HANDLE EACH EVENT ***************************/
+
+// QUESTION: how do we get the parameters and how are they formatted?
 http.createServer(function(req, res) {
+	if (req.url == '/') {
+		insertLikes("noalglais.tumblr.com");
+	}
 	if (req.method == 'POST') {
 		if (req.url == '/blog') {
 			// parameter: blog
 			//            a string indicating a new blog to track by its {base-hostname}
 			// RESPONSE: HTTP status 200 if accepted.
-			
+
 			// How do we retrieve data from a blog by {base-hostname}?
 				/* see insertLikes function */
 			// what is {base-hostname}? given to us?
 				/* i think it's safe to assume it's given to us in the request */
 			// data to retrieve...
 			// 	URL, DATE, IMAGE or TEXT (something that describes the post), NOTE_COUNT
-			
+
 			// we need to keep track of increments per hour, which is done by time_stamp table.
-			
+
 			// note to Allen: if we have primary key for url in image table... how are we taking care of multiple images in one url?
 				/* changed so that it's no longer a primary key */
-			
+
 			// retrieve info about the posts that this blogger 'liked' or 'reblogged'
 			// /like tumblr API will help us with this step.
-			
+
 			//databse("INSERT", data); // template
-			mysql.connect();
-			console.log("about to insert likes");
-			insertLikes("noalglais.tumblr.com");
-			console.log("inserted likes");
-			mysql.end();
-			
+
+			insertBlog(hostname); // insert blog to host
+
 			res.writeHead(200);
 			res.end();
 		}
