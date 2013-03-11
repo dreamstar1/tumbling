@@ -9,9 +9,9 @@ create table post (
 	blog_url varchar(50) not null,
 	txt varchar(50),
 	img varchar(50),
-	dt date not null,
+	dt timestamp not null,
 	last_track date not null,
-	last_count integer not null
+	note_count integer not null
 );
 
 -- store image and post associated with it
