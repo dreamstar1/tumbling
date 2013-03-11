@@ -6,6 +6,7 @@ create table blog (
 -- posts we are tracking
 create table post (
 	url varchar(50) primary key,
+	blog_url varchar(50) not null,
 	txt varchar(50),
 	img varchar(50),
 	dt date not null,
@@ -19,9 +20,10 @@ create table image (
   post varchar(50) references post(url)
 );
 
--- time stamp assiciated with posts
+-- time stamp associated with posts
 create table time_stamp (
   id integer auto_increment primary key, 
+  ts date,
   url varchar(50) references post(url),
   seq integer,
   inc integer,
