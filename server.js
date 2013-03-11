@@ -12,7 +12,8 @@ MIME_TYPES ={
 
 //handling tumblr
 var KEY = 'VdAQkUPDY46fUmqRVGqRCY3ncJvrx6SDKAl5bQN7Tw2xZgxeY9';
-
+//timeout
+var timeout;
 // Handling Database
 var _mysql = require("./node-v0.8.18-linux-x86/bin/node_modules/mysql");
 var _HOST = "dbsrv1.cdf.toronto.edu";
@@ -47,7 +48,7 @@ mysql.connect(function(error, results) {
 
 /*************************** FUNCTION FOR DATABASE INTERACTION ***************************/
 
-function database(cmd, tbl, field, value) {
+function database(cmd, tbl, field, value, post_url) {
 	
 	if (cmd == "INSERT") {
 		mysql.query("insert into " + tbl + " (" + field + ") values ('" + value + "')", 
@@ -74,20 +75,29 @@ function database(cmd, tbl, field, value) {
 	}
 	else if (cmd == "EXISTS") {
 		mysql.query("select exists(select * from " + tbl + " where " + field + " = '" + value + "')", function (error, results, fields) {
-		if (error) {
-			console.log('Exists Error: ' + error.message);
-			mysql.end();
-			return;
-		}
-		else if (results[0] == 1) {
-			console.log(mysql.callback(results[0]));
-			return true;
-		}
-		else {
-			console.log(mysql.callback(results[0]));
-			return false;
-		}
-	});
+			if (error) {
+				console.log('Exists Error: ' + error.message);
+				mysql.end();
+				return;
+			}
+			else if (results[0] == 1) {
+				console.log(mysql.callback(results[0]));
+				return true;
+			}
+			else {
+				console.log(mysql.callback(results[0]));
+				return false;
+			}
+		});
+	}
+	else if (cmd == "UPDATE") {
+		mysql.query("update "+tbl+" set "+field+"=? where url=?", [value, post_url], function (error, results, fields) {
+			if (error) {
+				console.log('Update Error: ' + error.message);
+				mysql.end();
+				return;
+			}
+		});
 	}
 }
 
@@ -99,7 +109,7 @@ function database(cmd, tbl, field, value) {
  */
 function insertBlog(hostname) {
 	console.log("inserting");
-	database("INSERT", BLOG_TBL, "url", hostname);
+	database("INSERT", BLOG_TBL, "url", hostname, "");
 	console.log("inserted");
 }
 
@@ -113,19 +123,43 @@ function insertLikes(hostname) {
 			var post;
 			for (var i=0; i<JSON.stringify(body.response.liked_count); i++) {
 				post = body.response.liked_posts[i];
+				database("INSERT", POST_TBL, 'url', post.post_url,"");
 				
-				if(!database("EXISTS", POST_TBL, "url", JSON.stringify(post.post_url))) {
+// 				database("INSERT", POST_TBL, 'dt', post.date);
+				
+				//if(!database("EXISTS", POST_TBL, "url", JSON.stringify(post.post_url))) {
 				    //insert into 'post' table all relavent info
-				    database("INSERT", POST_TBL, "url", JSON.stringify(post.post_url)); // insert url
+				  //  database("INSERT", POST_TBL, "url", JSON.stringify(post.post_url)); // insert url
 				    //insert text
 				    //insert image
-					database("INSERT", POST_TBL, "dt", JSON.stringify(post.date)); // insert date
-				}
+					//database("INSERT", POST_TBL, "dt", JSON.stringify(post.date)); // insert date
+				//}
+			}
+			for (var i=0; i<JSON.stringify(body.response.liked_count); i++) {
+				post = body.response.liked_posts[i];
+				database("UPDATE", POST_TBL, 'note_count', post.note_count, post.post_url);
+				
+// 				database("INSERT", POST_TBL, 'dt', post.date);
+				
+				//if(!database("EXISTS", POST_TBL, "url", JSON.stringify(post.post_url))) {
+				    //insert into 'post' table all relavent info
+				  //  database("INSERT", POST_TBL, "url", JSON.stringify(post.post_url)); // insert url
+				    //insert text
+				    //insert image
+					//database("INSERT", POST_TBL, "dt", JSON.stringify(post.date)); // insert date
+				//}
 			}
 		}
 	}) 
 }
-
+/*
+	url varchar(50) primary key,
+	blog_url varchar(50) not null,
+	txt varchar(50),
+	img varchar(50),
+	dt timestamp not null,
+	last_track date not null,
+	note_count integer not null*/
 /*************************** GET METHODS FUNCTIONS ***************************/
 /*** GET /blog/{base-hostname}/trends is method_type 1 ***/
 /*** GET /blog/{base-hostname}/trends IS method_type 2 ***/
@@ -206,45 +240,46 @@ function getTrendInfo(basename, order, limit, method_type) {
 
 http.createServer(function(req, res) {
 	if (req.url == '/') {
-		insertLikes("noalglais.tumblr.com");
+		//insertLikes("noalglais.tumblr.com");
+		res.writeHead(200);
+		res.end();
+// mysql -p -h dbsrv1 -u g1sigal csc309h_g1sigal
 	}
 	if (req.method == 'POST') {
 		if (req.url == '/blog') {
-		  console.log(req.url);
+		console.log(req.url);
 		 
 		var id = "";
 		// Load reply info.
 		req.on('data', function(buf){
-		id += buf.toString();
+			id += buf.toString();
 		});
-		var jason = qs.stringify(id);
-		console.log(jason.message);
-
-			// parameter: blog
-			//            a string indicating a new blog to track by its {base-hostname}
-			// RESPONSE: HTTP status 200 if accepted.
-
-			// How do we retrieve data from a blog by {base-hostname}?
-				/* see insertLikes function */
-			// what is {base-hostname}? given to us?
-				/* i think it's safe to assume it's given to us in the request */
-			// data to retrieve...
-			// 	URL, DATE, IMAGE or TEXT (something that describes the post), NOTE_COUNT
-
-			// we need to keep track of increments per hour, which is done by time_stamp table.
-
-			// note to Allen: if we have primary key for url in image table... how are we taking care of multiple images in one url?
-				/* changed so that it's no longer a primary key */
-
-			// retrieve info about the posts that this blogger 'liked' or 'reblogged'
-			// /like tumblr API will help us with this step.
-
-			//databse("INSERT", data); // template
-
-			//insertBlog(hostname); // insert blog to host
-
-			res.writeHead(200, "OK", {'Content-Type': 'text/html'});
+		
+		req.on('end', function() {
+			var hostname = qs.parse(id).blog;
+			insertBlog(hostname);
+			insertLikes(hostname);
+			res.writeHead(200);
 			res.end();
+		});
+		
+		// parameter: blog
+		//            a string indicating a new blog to track by its {base-hostname}
+		// RESPONSE: HTTP status 200 if accepted.
+
+		// How do we retrieve data from a blog by {base-hostname}?
+			/* see insertLikes function */
+		// what is {base-hostname}? given to us?
+			/* i think it's safe to assume it's given to us in the request */
+		// data to retrieve...
+		// 	URL, DATE, IMAGE or TEXT (something that describes the post), NOTE_COUNT
+		// we need to keep track of increments per hour, which is done by time_stamp table.
+		// note to Allen: if we have primary key for url in image table... how are we taking care of multiple images in one url?
+			/* changed so that it's no longer a primary key */
+		// retrieve info about the posts that this blogger 'liked' or 'reblogged'
+		// /like tumblr API will help us with this step.
+		//databse("INSERT", data); // template
+		//insertBlog(hostname); // insert blog to host
 		}
 	} else if (req.method == 'GET') {
 		// parameter: limit (optional)
