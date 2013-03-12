@@ -75,6 +75,7 @@ function database(cmd, tbl, field, value, key) {
 		});
 	}
 	else if (cmd == "EXISTS") {
+		console.log("running exists");
 		mysql.query("select exists(select * from " + tbl + " where " + field + " = '" + value + "')", function (error, results, fields) {
 			if (error) {
 				console.log('Exists Error: ' + error.message);
@@ -82,11 +83,11 @@ function database(cmd, tbl, field, value, key) {
 				return;
 			}
 			else if (results[0] == 1) {
-				console.log(mysql.callback(results[0]));
+			  console.log("it exist");
 				return true;
 			}
 			else {
-				console.log(mysql.callback(results[0]));
+			  console.log("it doesn't exist");
 				return false;
 			}
 		});
@@ -159,7 +160,7 @@ function insertLikesHelper(hostname, count) {
 						 + "'" + getTime() + "', "
 						 + "'" + post.note_count;
 						//vals = "a', 'b', 'c', 'd', '" + post.date + "', '" + post.date + "', '1";
-						database("INSERT", POST_TBL, cols, vals);
+						database("INSERT", POST_TBL, cols, vals, "");
 						console.log(i);
 					}
 				}
@@ -198,6 +199,7 @@ function getPostInfo(post_url) {
 
 	var trending = { "url": "", "text": "", "image": "", "date": "", "last_track": "", "last_count": 0, "tracking": []};
 	
+	// database param cmd, tbl, field, value, key
 	// get the posts associated with hostname
 	var post = database("GET", POST_TBL, "url", post_url);
 		
@@ -314,49 +316,50 @@ http.createServer(function(req, res) {
 		// parameter: limit (optional) as 2nd argument of -d in curl
 		//	      the maximum number of results to return.
 		// RESPONSE: JSON including trend, or recent info
-		if (req.url == '/blogs/trends') {
-			req.on('data', function(buf){
-				var curl_data = buf.toString();
-				var order = curl_data.split(" ")[0]; //first argument of -d as order
-				if (curl_data.split(" ")[1] != undefined){
-					var limit = curl_data.split(" ")[1]; //second argument of -d as limit
-				}
-				
-				//alternatively
-				//var order = data.order;
-				//var limit = data.limit;
-			});
-			
-			req.on('end', function() {
-			var trendinfo = getTrendInfo(POST_TBL, order, limit, 2);
-			res.write(trendinfo);
-			res.end();
-			});
-		}
-		
-		
-		else {
-			var id = "";
+		var split_url = req.url.split("/");
+// 		if (req.url == '/blogs/trends') {
+// 			req.on('data', function(buf){
+// 				var curl_data = buf.toString();
+// 				var order = curl_data.split(" ")[0]; //first argument of -d as order
+// 				if (curl_data.split(" ")[1] != undefined){
+// 					var limit = curl_data.split(" ")[1]; //second argument of -d as limit
+// 				}
+// 			});
+// 	
+// 		}
+
+		//return the ordered posts of the specified hostname's likes
+		console.log(split_url[1]);
+		console.log(split_url[split_url.length-1]);
+		console.log(split_url[2]);
+		if(split_url[1] == 'blog' && split_url[split_url.length-1]=='trends' && (database('EXISTS', 'blog', 'url', split_url[2]))==true){
+			var param = ""; //the param passed in
+			limitarg = ""; //limit param
 			// Load reply info.
 			req.on('data', function(buf){
-			var curl_data = buf.toString();
-			var order = curl_data.split(" ")[0]; //first argument of -d as order
-			if (curl_data.split(" ")[1] != undefined){
-				var limit = curl_data.split(" ")[1]; //second argument of -d as limit
+			param = buf.toString();
+			var orderarg = param.split("&")[0]; //first argument of -d as order
+			if (param.split("&")[1] != undefined){
+				limitarg = (param.split("&")[1]).split("=")[1]; //second argument of -d as limit
 			}
-			//alternatively
-				//var order = data.order;
-				//var limit = data.limit;
 		});
-		
 			req.on('end', function() {
-			//note to everyone problem? how is the hostname argument passed?
-			var hostname = qs.parse(id).blog;
-			// var trendinfo = getTrendInfo(hostname, order, limit, 1);
-			// res.write(trendinfo);
-			res.end();
-			});
+			//parse parameter to find order argument
+			var order = qs.parse(param).order;
+			console.log(split_url[2]);
+			console.log(order);
+			console.log(limitarg);
+// 			var trendinfo = getTrendInfo(hostname, order, limit, 1);
+// 			 res.write(trendinfo);
+ 			res.end();
+ 			});
+  		}
+  		else{
+		  res.writeHead(404);
+		  console.log('shit');
+		  res.end();
 		}
+		
 	}
 }).listen(PORT);
 
