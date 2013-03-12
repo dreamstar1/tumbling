@@ -1,0 +1,11 @@
+POST
+
+curl -X POST -d blog=songjoo1.tumblr.com http://localhost:31355/blog
+
+
+
+GET
+
+
+curl -X GET -d "order=Recent&limit=10" http://localhost:31355/blogs/trends 
+curl -X GET -d "order=Trending&limit=10" http://localhost:31355/blogs/trends 
