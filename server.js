@@ -76,13 +76,15 @@ function database(cmd, tbl, field, value, key) {
 	}
 	else if (cmd == "EXISTS") {
 		console.log("running exists");
-		mysql.query("select exists(select * from " + tbl + " where " + field + " = '" + value + "')", function (error, results, fields) {
+		mysql.query("select exists(select * from " + tbl + " where " + field + " = '" + value + "') as exist", function (error, results, fields) {
+
+		  
 			if (error) {
 				console.log('Exists Error: ' + error.message);
 				mysql.end();
 				return;
 			}
-			else if (results[0] == 1) {
+			else if (results[0].exist == 1) {
 			  console.log("it exist");
 				return true;
 			}
@@ -332,7 +334,9 @@ http.createServer(function(req, res) {
 		console.log(split_url[1]);
 		console.log(split_url[split_url.length-1]);
 		console.log(split_url[2]);
-		if(split_url[1] == 'blog' && split_url[split_url.length-1]=='trends' && (database('EXISTS', 'blog', 'url', split_url[2]))==true){
+		// _ / blog / hostname/ trends
+		// 0     1        2        3
+		if((database('EXISTS', 'blog', 'url', split_url[2]))==true && split_url[1] == 'blog' && split_url[split_url.length-1]=='trends'){
 			var param = ""; //the param passed in
 			limitarg = ""; //limit param
 			// Load reply info.
@@ -356,7 +360,7 @@ http.createServer(function(req, res) {
   		}
   		else{
 		  res.writeHead(404);
-		  console.log('shit');
+		  console.log('GET ELSE');
 		  res.end();
 		}
 		
