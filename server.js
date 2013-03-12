@@ -18,9 +18,9 @@ var timeout;
 var _mysql = require("./node-v0.8.18-linux-x86/bin/node_modules/mysql");
 var _HOST = "dbsrv1.cdf.toronto.edu";
 var _PORT = "3306"; // standard sql PORT
-var _USER = "g1sigal";
-var _PASS = "lohbiari";
-var DATABASE = "csc309h_g1sigal"; // this database? or a2.sql we created? 
+var _USER = "g2kuhenr";
+var _PASS = "uixifahf";
+var _DATABASE = "csc309h_g2kuhenr"; // this database? or a2.sql we created? 
 											/* we'll have to run a2.sql just 
 											 * once on csc309h_{cdf_user_name} to create the tables */
 // db tables
@@ -34,8 +34,9 @@ var mysql = _mysql.createConnection({
 	port: _PORT,
 	user: _USER,
 	password: _PASS,
+	database: _DATABASE
 });
-mysql.query('use ' + DATABASE);
+
 
 mysql.connect(function(error, results) {
 	if(error) {
@@ -126,8 +127,8 @@ function insertLikesHelper(hostname, count) {
 					post = body.response.liked_posts[i];
 					if (post) {
 						var img;
-						if (post.image) {
-							img = post.image;
+						if (post.image_permalink) {
+							img = post.image_permalink;
 						} else {
 							img = "";
 						}
@@ -154,35 +155,8 @@ function insertLikes(hostname) {
 	request.get({url:'http://api.tumblr.com/v2/blog/'+hostname+'/likes?api_key='+KEY+'&limit=51', json:true}, function (error, response, body) {
 		if (!error) {
 			insertLikesHelper(hostname, body.response.liked_count);
-			/*var post;
-			//console.log(body.response.liked_count);
-			for (var i=0; i<body.response.liked_count; i++) {
-				post = body.response.liked_posts[i];
-				if (post) {
-					database("UPDATE", POST_TBL, "last_track", post.last_track, post.post_url);
-					//console.log(i);
-				}
-			}*/
-		  /*
-			var post;
-				console.log(body.response.liked_count);
- 			for (var i=0; i<body.response.liked_count; i++) {
- 				post = body.response.liked_posts[i];
-				if (post) {
-					database("INSERT", POST_TBL, 'url', post.post_url,"");
-					console.log(i);
-				}
-// 				database("INSERT", POST_TBL, 'dt', post.date);
-				
-				//if(!database("EXISTS", POST_TBL, "url", JSON.stringify(post.post_url))) {
-				    //insert into 'post' table all relavent info
-				  //  database("INSERT", POST_TBL, "url", JSON.stringify(post.post_url)); // insert url
-				    //insert text
-				    //insert image
-					//database("INSERT", POST_TBL, "dt", JSON.stringify(post.date)); // insert date
-				//}
- 			}*/
 		}
+		else{console.log("error in insertlikes"); }
 	}) 
 }
 /*
