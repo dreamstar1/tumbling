@@ -182,6 +182,47 @@ function insertLikes(hostname) {
 		else{console.log("error in insertlikes"); }
 	}) 
 }
+
+
+
+
+function insertTracking(post_url, count) {
+  var cols = "ts, url, seq, inc, cnt";
+  var vals;
+
+  var ts = getTime();
+  var url = post_url;
+  var cnt = count;
+
+  var note_count = database("GET", POST_TBL, "note_count", post_url, "");
+  var inc = cnt - note_count[0].note_count;
+  var seq;
+  if (!database("EXISTS", TMSTMP_TBL, "url", post_url)) {
+    vals = ts + "', "
+    + "'" + url + "', "
+    + "'" + seq + "', "
+    + "'" + inc + "', "
+    + "'" + cnt;
+    seq = 1;
+  } else {
+    seq = mysql.query("select max(seq) as max_seq from time_stamp where url = 'post_url'", function (error, results, fields) {
+    if (error) {
+      console.log('Select MAX Error: ' + error.message);
+      mysql.end();
+      return;
+    }
+    return results;
+    });
+    seq = seq[0].max_seq;
+    vals = ts + "', "
+    + "'" + url + "', "
+    + "'" + seq + "', "
+    + "'" + inc + "', "
+    + "'" + cnt;
+  }
+
+  database("INSERT", TMSTMP_TBL, cols, vals);
+}
 /*
 	url varchar(50) primary key,
 	blog_url varchar(50) not null,
@@ -229,37 +270,37 @@ function getPostInfo(post_url) {
 }
 
 /*
- * Return trend information specified by a basename in JSON format
- */
+* Return trend information specified by a basename in JSON format
+*/
 function getTrendInfo(basename, order, limit, method_type) {
-	var trends = {"trending": [], "order" : order, "limit" : limit};
-	
-	var posts = new Array();
-	if (method_type == 1) { // method is GET /blog/{base-hostname}/trends
-		// get post urls that are related to a specific basename (blog)
-		posts = database("GET", POST_TBL, "blog_url", basename);
-	
-	} else { // method is  GET /blog/trends 
-		// get all posts that exist in the database
-		posts = database("GET", POST_TBL, "url", POST_TBL);
-	}
-	
-	// when we get to figuring out order we're gonna need this
-	/*
-	var filteredPosts = new Array();
-	if (order == "Trending") {
-		filteredPosts = filterByTrending(posts);
-	} else {
-		filteredPosts = filterByRecent(posts);
-	}*/
-	
-	// change 'posts' to filteredPosts after filtering functions are implemented
-	for (var i=0; i<posts.length; i++) {
-		var post = getPostInfo(posts[i].url);
-		trends.trending.push(post);
-	}
-	
-	return trends;
+  var trends = {"trending": [], "order" : order, "limit" : limit};
+
+  var posts = new Array();
+  if (method_type == 1) { // method is GET /blog/{base-hostname}/trends
+  // get post urls that are related to a specific basename (blog)
+  posts = database("GET", POST_TBL, "blog_url", "*", basename);
+
+  } else { // method is GET /blog/trends
+  // get all posts that exist in the database
+    posts = database("GET", POST_TBL, "", "*", "");
+  }
+
+// when we get to figuring out order we're gonna need this
+/*
+var filteredPosts = new Array();
+if (order == "Trending") {
+filteredPosts = filterByTrending(posts);
+} else {
+filteredPosts = filterByRecent(posts);
+}*/
+
+// change 'posts' to filteredPosts after filtering functions are implemented
+  for (var i=0; i<posts.length; i++) {
+  var post = getPostInfo(posts[i].url);
+  trends.trending.push(post);
+  }
+
+  return trends;
 }
 
 /*************************** SERVER THAT WILL HANDLE EACH EVENT ***************************/
@@ -336,6 +377,7 @@ http.createServer(function(req, res) {
 		console.log(split_url[2]);
 		// _ / blog / hostname/ trends
 		// 0     1        2        3
+		
 		if((database('EXISTS', 'blog', 'url', split_url[2]))==true && split_url[1] == 'blog' && split_url[split_url.length-1]=='trends'){
 			var param = ""; //the param passed in
 			limitarg = ""; //limit param
@@ -353,9 +395,9 @@ http.createServer(function(req, res) {
 			console.log(split_url[2]);
 			console.log(order);
 			console.log(limitarg);
-// 			var trendinfo = getTrendInfo(hostname, order, limit, 1);
-// 			 res.write(trendinfo);
- 			res.end();
+// 			var trendinfo = getTrendInfo(POST_TBL, order, limit, 2);
+			//res.write(trendinfo);
+			res.end();
  			});
   		}
   		else{
