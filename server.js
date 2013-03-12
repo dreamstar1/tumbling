@@ -113,18 +113,51 @@ function insertBlog(hostname) {
 	console.log("inserted");
 }
 
+function insertLikesHelper(hostname, count) {
+	var off;
+	for (off = 0; off < count+50; off+=50) {
+		request.get({url:'http://api.tumblr.com/v2/blog/'+hostname+'/likes?api_key='+KEY+'&limit=50&offset='+off, json:true}, function (error, response, body) {
+			if (!error) {
+				var post;
+					console.log(body.response.liked_count);
+				for (var i=0; i<body.response.liked_count; i++) {
+					post = body.response.liked_posts[i];
+					if (post) {
+						database("INSERT", POST_TBL, 'url', post.post_url,"");
+						console.log(i);
+					}
+	// 				database("INSERT", POST_TBL, 'dt', post.date);
+					
+					//if(!database("EXISTS", POST_TBL, "url", JSON.stringify(post.post_url))) {
+					    //insert into 'post' table all relavent info
+					  //  database("INSERT", POST_TBL, "url", JSON.stringify(post.post_url)); // insert url
+					    //insert text
+					    //insert image
+						//database("INSERT", POST_TBL, "dt", JSON.stringify(post.date)); // insert date
+					//}
+				}
+			}
+		}) 
+	}
+}
 /*
  * Insert into db info about liked posts of a blog specified by 'hostname'
  * TODO: figure out what is 'text' and how to handle images
  */
 function insertLikes(hostname) {
-	request.get({url:'http://api.tumblr.com/v2/blog/'+hostname+'/likes?api_key='+KEY, json:true}, function (error, response, body) {
+	request.get({url:'http://api.tumblr.com/v2/blog/'+hostname+'/likes?api_key='+KEY+'&limit=51', json:true}, function (error, response, body) {
 		if (!error) {
+			insertLikesHelper(hostname, body.response.liked_count);
+		  
+		  /*
 			var post;
-			for (var i=0; i<JSON.stringify(body.response.liked_count); i++) {
-				post = body.response.liked_posts[i];
-				database("INSERT", POST_TBL, 'url', post.post_url,"");
-				
+				console.log(body.response.liked_count);
+ 			for (var i=0; i<body.response.liked_count; i++) {
+ 				post = body.response.liked_posts[i];
+				if (post) {
+					database("INSERT", POST_TBL, 'url', post.post_url,"");
+					console.log(i);
+				}
 // 				database("INSERT", POST_TBL, 'dt', post.date);
 				
 				//if(!database("EXISTS", POST_TBL, "url", JSON.stringify(post.post_url))) {
@@ -134,21 +167,7 @@ function insertLikes(hostname) {
 				    //insert image
 					//database("INSERT", POST_TBL, "dt", JSON.stringify(post.date)); // insert date
 				//}
-			}
-			for (var i=0; i<JSON.stringify(body.response.liked_count); i++) {
-				post = body.response.liked_posts[i];
-				database("UPDATE", POST_TBL, 'note_count', post.note_count, post.post_url);
-				
-// 				database("INSERT", POST_TBL, 'dt', post.date);
-				
-				//if(!database("EXISTS", POST_TBL, "url", JSON.stringify(post.post_url))) {
-				    //insert into 'post' table all relavent info
-				  //  database("INSERT", POST_TBL, "url", JSON.stringify(post.post_url)); // insert url
-				    //insert text
-				    //insert image
-					//database("INSERT", POST_TBL, "dt", JSON.stringify(post.date)); // insert date
-				//}
-			}
+ 			}*/
 		}
 	}) 
 }
