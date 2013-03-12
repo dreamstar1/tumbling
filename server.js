@@ -321,9 +321,20 @@ http.createServer(function(req, res) {
 				if (curl_data.split(" ")[1] != undefined){
 					var limit = curl_data.split(" ")[1]; //second argument of -d as limit
 				}
+				
+				//alternatively
+				//var order = data.order;
+				//var limit = data.limit;
 			});
-	
+			
+			req.on('end', function() {
+			var trendinfo = getTrendInfo(POST_TBL, order, limit, 2);
+			res.write(trendinfo);
+			res.end();
+			});
 		}
+		
+		
 		else {
 			var id = "";
 			// Load reply info.
@@ -333,6 +344,9 @@ http.createServer(function(req, res) {
 			if (curl_data.split(" ")[1] != undefined){
 				var limit = curl_data.split(" ")[1]; //second argument of -d as limit
 			}
+			//alternatively
+				//var order = data.order;
+				//var limit = data.limit;
 		});
 		
 			req.on('end', function() {
