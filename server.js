@@ -189,7 +189,7 @@ function insertLikes(hostname) {
 	note_count integer not null*/
 /*************************** GET METHODS FUNCTIONS ***************************/
 /*** GET /blog/{base-hostname}/trends is method_type 1 ***/
-/*** GET /blog/{base-hostname}/trends IS method_type 2 ***/
+/*** GET /blog/trends is method_type 2 ***/
 
 /*
  * Return post information in JSON format
@@ -306,17 +306,42 @@ http.createServer(function(req, res) {
 		//insertBlog(hostname); // insert blog to host
 		}
 	} else if (req.method == 'GET') {
-		// parameter: limit (optional)
-		//	      the maximum number of results to return.
-		// parameter: order
+		console.log(req.url);
+		// parameter: order as 1st argument of -d in curl
 		//	      "Trending" or "Recent" indicating how to order JSON
 		//	      "Trending" - posts that have the largest increments in note_count in the last hour
 		//            "Recent" - most recent posts regardless of  their popularity.
+		// parameter: limit (optional) as 2nd argument of -d in curl
+		//	      the maximum number of results to return.
 		// RESPONSE: JSON including trend, or recent info
 		if (req.url == '/blogs/trends') {
-			// return from all information in the database
-		} else {
-			// return from database with host {base-hostname}
+			req.on('data', function(buf){
+				var curl_data = buf.toString();
+				var order = curl_data.split(" ")[0]; //first argument of -d as order
+				if (curl_data.split(" ")[1] != undefined){
+					var limit = curl_data.split(" ")[1]; //second argument of -d as limit
+				}
+			});
+	
+		}
+		else {
+			var id = "";
+			// Load reply info.
+			req.on('data', function(buf){
+			var curl_data = buf.toString();
+			var order = curl_data.split(" ")[0]; //first argument of -d as order
+			if (curl_data.split(" ")[1] != undefined){
+				var limit = curl_data.split(" ")[1]; //second argument of -d as limit
+			}
+		});
+		
+			req.on('end', function() {
+			//note to everyone problem? how is the hostname argument passed?
+			var hostname = qs.parse(id).blog;
+			// var trendinfo = getTrendInfo(hostname, order, limit, 1);
+			// res.write(trendinfo);
+			res.end();
+			});
 		}
 	}
 }).listen(PORT);
