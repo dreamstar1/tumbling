@@ -115,6 +115,25 @@ function insertBlog(hostname) {
 	console.log("inserted");
 }
 
+/*
+ * Returns the current time in this format Last Track: 2013-03-11 23:45:57
+ */
+function getTime(){
+  var currentdate = new Date();
+  var datetime = currentdate.getFullYear() + "-" + checknumber(currentdate.getMonth()+1) + "-" + checknumber(currentdate.getDate()) + " "
+                + currentdate.getHours() + ":"  
+                + currentdate.getMinutes() + ":" 
+                + currentdate.getSeconds() + "EST";
+  return datetime;
+}
+
+/*
+ * Adds an 0 to the number if it is smaller than 10
+ */
+function checknumber(time){
+  return (time < 10) ? ("0" + time) : time;  
+}
+
 function insertLikesHelper(hostname, count) {
 	var off;
 	for (off = 0; off < count+50; off+=50) {
@@ -122,7 +141,7 @@ function insertLikesHelper(hostname, count) {
 			if (!error) {
 				var post;
 				var vals;
-				var cols = "url, blog_url, txt, img, dt, note_count"; 
+				var cols = "url, blog_url, txt, img, dt, last_track, note_count"; 
 				for (var i=0; i<body.response.liked_count; i++) {
 					post = body.response.liked_posts[i];
 					if (post) {
@@ -137,6 +156,7 @@ function insertLikesHelper(hostname, count) {
 						 + "'" + post.slug + "', "
 						 + "'" + img + "', "
 						 + "'" + post.date + "', "
+						 + "'" + getTime() + "', "
 						 + "'" + post.note_count;
 						//vals = "a', 'b', 'c', 'd', '" + post.date + "', '" + post.date + "', '1";
 						database("INSERT", POST_TBL, cols, vals);
@@ -240,17 +260,14 @@ function getTrendInfo(basename, order, limit, method_type) {
 
 /*************************** SERVER THAT WILL HANDLE EACH EVENT ***************************/
 
-// QUESTION: how do we get the parameters and how are they formatted?
-//curl -X POST -d blog=fastcompany.tumblr.com http://localhost:31355/blog
-//node-v0.8.18-linux-x86/bin/node server.js
-// mysql -p -h dbsrv1 -u g1sigal csc309h_g1sigal
+
+
 
 http.createServer(function(req, res) {
 	if (req.url == '/') {
 		//insertLikes("noalglais.tumblr.com");
 		res.writeHead(200);
 		res.end();
-// mysql -p -h dbsrv1 -u g1sigal csc309h_g1sigal
 	}
 	if (req.method == 'POST') {
 		if (req.url == '/blog') {
