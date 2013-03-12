@@ -48,7 +48,7 @@ mysql.connect(function(error, results) {
 
 /*************************** FUNCTION FOR DATABASE INTERACTION ***************************/
 
-function database(cmd, tbl, field, value, post_url) {
+function database(cmd, tbl, field, value, key) {
 	
 	if (cmd == "INSERT") {
 		mysql.query("insert into " + tbl + " (" + field + ") values ('" + value + "')", 
@@ -91,13 +91,14 @@ function database(cmd, tbl, field, value, post_url) {
 		});
 	}
 	else if (cmd == "UPDATE") {
-		mysql.query("update "+tbl+" set "+field+"=? where url=?", [value, post_url], function (error, results, fields) {
+		mysql.query("update "+tbl+" set "+field+"=? where url=?", [value, key], function (error, results, fields) {
 			if (error) {
 				console.log('Update Error: ' + error.message);
 				mysql.end();
 				return;
 			}
 		});
+		console.log("updated table " + tbl + " with key " + key);
 	}
 }
 
@@ -119,22 +120,27 @@ function insertLikesHelper(hostname, count) {
 		request.get({url:'http://api.tumblr.com/v2/blog/'+hostname+'/likes?api_key='+KEY+'&limit=50&offset='+off, json:true}, function (error, response, body) {
 			if (!error) {
 				var post;
-					console.log(body.response.liked_count);
+				var vals;
+				var cols = "url, blog_url, txt, img, dt, note_count"; 
 				for (var i=0; i<body.response.liked_count; i++) {
 					post = body.response.liked_posts[i];
 					if (post) {
-						database("INSERT", POST_TBL, 'url', post.post_url,"");
+						var img;
+						if (post.image) {
+							img = post.image;
+						} else {
+							img = "";
+						}
+						vals = post.post_url + "', " 
+						 + "'" + hostname + "', "
+						 + "'" + post.slug + "', "
+						 + "'" + img + "', "
+						 + "'" + post.date + "', "
+						 + "'" + post.note_count;
+						//vals = "a', 'b', 'c', 'd', '" + post.date + "', '" + post.date + "', '1";
+						database("INSERT", POST_TBL, cols, vals);
 						console.log(i);
 					}
-	// 				database("INSERT", POST_TBL, 'dt', post.date);
-					
-					//if(!database("EXISTS", POST_TBL, "url", JSON.stringify(post.post_url))) {
-					    //insert into 'post' table all relavent info
-					  //  database("INSERT", POST_TBL, "url", JSON.stringify(post.post_url)); // insert url
-					    //insert text
-					    //insert image
-						//database("INSERT", POST_TBL, "dt", JSON.stringify(post.date)); // insert date
-					//}
 				}
 			}
 		}) 
@@ -148,7 +154,15 @@ function insertLikes(hostname) {
 	request.get({url:'http://api.tumblr.com/v2/blog/'+hostname+'/likes?api_key='+KEY+'&limit=51', json:true}, function (error, response, body) {
 		if (!error) {
 			insertLikesHelper(hostname, body.response.liked_count);
-		  
+			/*var post;
+			//console.log(body.response.liked_count);
+			for (var i=0; i<body.response.liked_count; i++) {
+				post = body.response.liked_posts[i];
+				if (post) {
+					database("UPDATE", POST_TBL, "last_track", post.last_track, post.post_url);
+					//console.log(i);
+				}
+			}*/
 		  /*
 			var post;
 				console.log(body.response.liked_count);
