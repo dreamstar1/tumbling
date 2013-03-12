@@ -37,18 +37,19 @@ var mysql = _mysql.createConnection({
 	database: _DATABASE
 });
 
+	mysql.connect(function(error, results) {
+		if(error) {
+			console.log('Connection Error: ' + error.message);
+			return;
+		}
+		console.log('Connected to database');
+	});
 
-mysql.connect(function(error, results) {
-	if(error) {
-		console.log('Connection Error: ' + error.message);
-		return;
-	}
-	console.log('Connected to database');
-});
 
 
 /*************************** FUNCTION FOR DATABASE INTERACTION ***************************/
 
+// 		posts = database("GET", POST_TBL, "", "*", "");
 function database(cmd, tbl, field, value, key) {
 	
 	if (cmd == "INSERT") {
@@ -59,20 +60,45 @@ function database(cmd, tbl, field, value, key) {
 				mysql.end();
 				return;
 			}
-			console.log("inserted " + value);
 		});
-
 	} else if (cmd == "GET") {
-		mysql.query("select * from " + tbl + " where " + field + "=" + value, function (error, results, fields) {
-			if (error) {
-				console.log('Select Error: ' + error.message);
-				mysql.end();
-				return;
-			}
-			if (results.length > 0) {
-				mysql.callback(results);
-			}
-		});
+		console.log("we are in the get with a value = " + value);
+		if (value == "*" && field == "") {
+			console.log("load everything in the databaseee!! " + tbl);
+			console.log("select * from '" + tbl + "'");
+			mysql.query("select * from '" + tbl + "'", function (error, results) {
+				if (error) {
+					console.log('Select Error: ' + error.message);
+					mysql.end();
+					return;
+				}
+				console.log(results);
+			});
+		}
+		else if (value == "*") {
+			mysql.query("select * from " + tbl + " where " + field + " = '" + value + "'", function (error, results, fields) {
+				if (error) {
+					console.log('Select Error: ' + error.message);
+					mysql.end();
+					return;
+				}
+				if (results.length > 0) {
+					return results;
+				}
+			});
+		}
+		else {
+			mysql.query("select " + value + " from " + tbl + " where " + field + " = '" + key + "'", function (error, results, fields) {
+				if (error) {
+					console.log('Select Error: ' + error.message);
+					mysql.end();
+					return;
+				}
+				if (results.length > 0) {
+					return results;
+				}
+			});
+		}
 	}
 	else if (cmd == "EXISTS") {
 		console.log("running exists");
@@ -161,7 +187,6 @@ function insertLikesHelper(hostname, count) {
 						 + "'" + post.note_count;
 						//vals = "a', 'b', 'c', 'd', '" + post.date + "', '" + post.date + "', '1";
 						database("INSERT", POST_TBL, cols, vals, "");
-						console.log(i);
 					}
 				}
 			}
@@ -270,14 +295,16 @@ function getPostInfo(post_url) {
 function getTrendInfo(basename, order, limit, method_type) {
 	var trends = {"trending": [], "order" : order, "limit" : limit};
 
-	var posts = new Array();
+	var posts;
 	if (method_type == 1) { // method is GET /blog/{base-hostname}/trends
 		// get post urls that are related to a specific basename (blog)
 		posts = database("GET", POST_TBL, "blog_url", "*", basename);
 
 	} else { // method is GET /blog/trends
 		// get all posts that exist in the database
+		console.log("we are in getTrendInfo with method_type 1, getting trends thank you.");
 		posts = database("GET", POST_TBL, "", "*", "");
+		console.log("Post = " + posts);
 	}
 
 	// when we get to figuring out order we're gonna need this
@@ -364,11 +391,10 @@ http.createServer(function(req, res) {
 				if (param.length > 1) {
 				      limit = param.limit; // find limit if exists
 				}
-			}
+			});
 			var trendinfo = getTrendInfo(POST_TBL, order, limit, 2);
 			res.write(trendinfo);
 			res.end();
-			});
 		}
 		// parameter: order as 1st argument of -d in curl
 		//	      "Trending" or "Recent" indicating how to order JSON
@@ -405,7 +431,7 @@ http.createServer(function(req, res) {
 					var data;
 					req.on('data', function(buf) {
 						data += buf;
-					}
+					});
 					var order = "";
 					var limit = "";
 					req.on('end', function() {
@@ -414,7 +440,7 @@ http.createServer(function(req, res) {
 						if (param.length > 1) {
 						      limit = param.limit; // find limit if exists
 						}
-					}
+					});
 					var trendinfo = getTrendInfo(POST_TBL, order, limit, 1);
 					res.write(trendinfo);
 					res.end();
@@ -422,36 +448,6 @@ http.createServer(function(req, res) {
 				}
 			}
 		}
-		
-		
-		if((database('EXISTS', 'blog', 'url', split_url[2]))==true && split_url[1] == 'blog' && split_url[split_url.length-1]=='trends'){
-			var param = ""; //the param passed in
-			limitarg = ""; //limit param
-			// Load reply info.
-			req.on('data', function(buf){
-			param = buf.toString();
-			var orderarg = param.split("&")[0]; //first argument of -d as order
-			if (param.split("&")[1] != undefined){
-				limitarg = (param.split("&")[1]).split("=")[1]; //second argument of -d as limit
-			}
-		});
-			req.on('end', function() {
-			//parse parameter to find order argument
-			var order = qs.parse(param).order;
-			console.log(split_url[2]);
-			console.log(order);
-			console.log(limitarg);
-// 			var trendinfo = getTrendInfo(POST_TBL, order, limit, 2);
-			//res.write(trendinfo);
-			res.end();
- 			});
-  		}
-  		else{
-		  res.writeHead(404);
-		  console.log('GET ELSE');
-		  res.end();
-		}
-		
 	}
 }).listen(PORT);
 
