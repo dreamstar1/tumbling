@@ -17,9 +17,9 @@ var KEY = 'VdAQkUPDY46fUmqRVGqRCY3ncJvrx6SDKAl5bQN7Tw2xZgxeY9';
 var _mysql = require("./node-v0.8.18-linux-x86/bin/node_modules/mysql");
 var _HOST = "dbsrv1.cdf.toronto.edu";
 var _PORT = "3306"; // standard sql PORT
-var _USER = "g2kuhenr";
-var _PASS = "uixifahf";
-var _DATABASE = "csc309h_g2kuhenr"; // this database? or a2.sql we created? 
+var _USER = "g2junhee";
+var _PASS = "eebiepic";
+var _DATABASE = "csc309h_g2junhee"; // this database? or a2.sql we created? 
 											/* we'll have to run a2.sql just 
 											 * once on csc309h_{cdf_user_name} to create the tables */
 // db tables
@@ -27,7 +27,9 @@ var BLOG_TBL = "blog";
 var POST_TBL = "post";
 var IMAGE_TBL = "image";
 var TMSTMP_TBL = "time_stamp";
+var LIKES_TBL = "likes";
 
+// mysql -p -h dbsrv1 -u g2_junhee -p eebiepic csc309h_g2junhee
 var mysql = _mysql.createConnection({
 	host: _HOST,
 	port: _PORT,
@@ -99,54 +101,85 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 	}
 }
 
-// 		posts = database("GET", POST_TBL, "", "*", "");
-function database(cmd, tbl, field, value, key, onSuccess, onErr) {
-	
-	if (cmd == "INSERT") {
-		mysql.query("select exists(select * from " + tbl + " where " + field + " = '" + value + "') as exist", function (error, results, fields) {
-			
-			
-			
-			mysql.query("insert into " + tbl + " (" + field + ") values ('" + value + "')", 
-						function (error, results, fields) {
-				if (error) {
-					console.log('Insert Error: ' + error.message);
-					mysql.end();
-					return;
+function insertDB(tbl, data, hostname, onSuccess, onErr) {
+	if (tbl == BLOG_TBL) {
+		existsInDB(tbl, "url", data, "", function (exists) {
+			if (!exists) {
+				console.log(data + " is inserted into table " + tbl);
+				mysql.query("insert into blog values ('"+data+"')", function (err, results, fields) {
+					if (err) {
+						console.log('Insert Error: ' + error.message);
+						mysql.end();
+					}
+				});
+			}
+		});
+	}
+	else if (tbl == POST_TBL) {
+		existsInDB(tbl, "url", data.post_url, "", function (exists) {
+			if (!exists) {
+				var cols = "url, txt, img, dt";
+				var img = "";
+				if (data.image_permalink) {
+					img = data.image_permalink;
 				}
-			});
+				var vals = data.post_url + "', " 
+				 + "'" + data.slug + "', "
+				 + "'" + img + "', "
+				 + "'" + data.date;
+				 
+				mysql.query("insert into " + tbl + " (" + cols + ") values ('" + vals + "')", function (err, results, fields) {
+					if (err) {
+						console.log('Insert Error: ' + error.message);
+						mysql.end();
+					}
+				});
+				console.log("insert into " + LIKES_TBL + " values ('"+data.post_url+"', '"+hostname+"')");
+				mysql.query("insert into " + LIKES_TBL + " values ('"+data.post_url+"', '"+hostname+"')", function(err, results, fields) {
+					if (err) {
+						console.log('Insert Error: ' + error.message);
+						mysql.end();
+					}
+				});
+			} else {
+				mysql.query("insert into " + LIKES_TBL + " values ('"+data.post_url+", "+hostname+"')", function(err, results, fields) {
+					if (err) {
+						console.log('Insert Error: ' + error.message);
+						mysql.end();
+					}
+				});
+			}
 		});
 	}
+	else if (tbl == TMSTMP_TBL) {
+		existsInDB(tbl, "url", data.post_url, "", function (exists) {
+			if (!exists) {
+				var cols = "ts, url, seq, inc, cnt";
+				var vals = getTime() + "', '"
+					 + data.post_url + "', '"
+					 + "0', '0', '" + data.note_count;
+					 
+				mysql.query("insert into " + tbl + " (" + cols +") values ('" + vals + "')", function (err, results, fields) {
+					if (err) {
+						console.log('Insert Error: ' + error.message);
+						mysql.end();
+					}
+				});
+			}
+		});
+	}
+}
+// 		posts = database("GET", POST_TBL, "", "*", "");
+function existsInDB(tbl, field, value, key, onSuccess, onErr) {
+	mysql.query("select exists(select * from " + tbl + " where " + field + " = '" + value + "') exist", function (error, results, fields) {
+		if (error) {
+			console.log('Exists Error: ' + error.message);
+			mysql.end();
+			onErr();
+		}
+		onSuccess(results[0].exist);
+	});
 	
-	
-	else if (cmd == "EXISTS") {
-		console.log("running exists");
-		mysql.query("select exists(select * from " + tbl + " where " + field + " = '" + value + "') as exist", function (error, results, fields) {
-			if (error) {
-				console.log('Exists Error: ' + error.message);
-				mysql.end();
-				onErr();
-			}
-			else if (results[0].exist == 1) {
-			  console.log("it exist");
-				onSuccess(true);
-			}
-			else {
-			  console.log("it doesn't exist");
-				onSuccess(false);
-			}
-		});
-	}
-	else if (cmd == "UPDATE") {
-		mysql.query("update "+tbl+" set "+field+"=? where url=?", [value, key], function (error, results, fields) {
-			if (error) {
-				console.log('Update Error: ' + error.message);
-				mysql.end();
-				return;
-			}
-		});
-		console.log("updated table " + tbl + " with key " + key);
-	}
 }
 
 
@@ -156,9 +189,9 @@ function database(cmd, tbl, field, value, key, onSuccess, onErr) {
  * Insert a blog URL into database
  */
 function insertBlog(hostname) {
-	console.log("inserting");
-	database("INSERT", BLOG_TBL, "url", hostname, "");
-	console.log("inserted");
+	// Url of a blogger that we are tracking.
+	console.log("insertBlog("+hostname+")");
+	insertDB(BLOG_TBL, hostname);
 }
 
 /*
@@ -192,24 +225,8 @@ function insertLikesHelper(hostname, count) {
 				for (var i=0; i<body.response.liked_count; i++) {
 					post = body.response.liked_posts[i];
 					if (post) {
-						var img;
-						if (post.image_permalink) {
-							img = post.image_permalink;
-						} else {
-							img = "";
-						}
-						pvals = post.post_url + "', " 
-						 + "'" + hostname + "', "
-						 + "'" + post.slug + "', "
-						 + "'" + img + "', "
-						 + "'" + post.date;
-						 
-						tvals = getTime() + "', '"
-						 + post.post_url + "', '"
-						 + "0', '0', '" + post.note_count;
-						//vals = "a', 'b', 'c', 'd', '" + post.date + "', '" + post.date + "', '1";
-						database("INSERT", POST_TBL, pcols, pvals, "");
-						database("INSERT", TMSTMP_TBL, tcols, tvals, "");
+						insertDB(POST_TBL, post, hostname);
+						insertDB(TMSTMP_TBL, post, hostname);
 					}
 				}
 			}
@@ -343,45 +360,30 @@ function updateDB(){
 
 http.createServer(function(req, res) {
 	if (req.url == '/') {
-		//insertLikes("noalglais.tumblr.com");
 		res.writeHead(200);
 		res.end();
 	}
 	if (req.method == 'POST') {
-		if (req.url == '/blog') {
-		console.log(req.url);
-		 
-		var id = "";
-		// Load reply info.
-		req.on('data', function(buf){
-			id += buf.toString();
-		});
-		
-		req.on('end', function() {
-			var hostname = qs.parse(id).blog;
-			insertBlog(hostname);
-			insertLikes(hostname);
-			res.writeHead(200);
-			res.end();
-		});
-		
 		// parameter: blog
 		//            a string indicating a new blog to track by its {base-hostname}
-		// RESPONSE: HTTP status 200 if accepted.
-
-		// How do we retrieve data from a blog by {base-hostname}?
-			/* see insertLikes function */
-		// what is {base-hostname}? given to us?
-			/* i think it's safe to assume it's given to us in the request */
-		// data to retrieve...
-		// 	URL, DATE, IMAGE or TEXT (something that describes the post), NOTE_COUNT
-		// we need to keep track of increments per hour, which is done by time_stamp table.
-		// note to Allen: if we have primary key for url in image table... how are we taking care of multiple images in one url?
-			/* changed so that it's no longer a primary key */
-		// retrieve info about the posts that this blogger 'liked' or 'reblogged'
-		// /like tumblr API will help us with this step.
-		//databse("INSERT", data); // template
-		//insertBlog(hostname); // insert blog to host
+		if (req.url == '/blog') {
+			console.log(req.url);
+			
+			var rawData = "";
+			
+			// Load {base-hostname}.
+			req.on('data', function(buf){
+				rawData += buf.toString();
+			});
+			
+			req.on('end', function() {
+				var hostname = qs.parse(rawData).blog;
+				insertBlog(hostname); // tracking blogs
+ 				insertLikes(hostname); // post liked by our tracking blogs.
+				// RESPONSE: HTTP status 200 if accepted.
+				res.writeHead(200);
+				res.end();
+			});
 		}
 	} else if (req.method == 'GET') {
 		console.log(req.url);
@@ -439,7 +441,7 @@ http.createServer(function(req, res) {
 			var bt = split_url[1]+"/"+split_url[3];
 			if (bt == "blog/trends") {
 				var hostname = split_url[2];
-				database("EXISTS", "blog", "url", hostname, "", function(exist) {
+				existsInDB(BLOG_TBL, "url", hostname, "", function(exist) {
 				  //if the hostname already exist in DB
 					//TODO: implement code to find trend with the hostname
  					var param;
