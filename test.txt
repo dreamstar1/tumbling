@@ -1,3 +1,16 @@
+npm install request
+npm install mysql
+npm install cron
+npm install querystring
+
+Using Screen:
+screen = runs a new session
+screen -list  = list all screens
+screen -S nameofsession  = gives new session with name
+ctrl+a \ = kills session
+ctrl+a d = detach
+screen -raAd = reattach then kill to really kill it  
+
 POST
 
 curl -X POST -d blog=songjoo1.tumblr.com http://localhost:31355/blog
