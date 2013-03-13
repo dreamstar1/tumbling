@@ -6,7 +6,6 @@ create table blog (
 -- posts we are tracking
 create table post (
 	url varchar(50) primary key,
-	blog_url varchar(50) not null,
 	txt varchar(50),
 	img varchar(50),
 	dt timestamp not null
