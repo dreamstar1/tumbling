@@ -51,9 +51,7 @@ mysql.connect(function(error, results) {
 function extractData(basename, order, limit, onSuccess, onErr) {
 	if (basename == "") {
 		if (order == "Trending") {
-			mysql.query("select * " + 
-				    "from (select ts, url, inc, cnt, max(seq) from time_stamp group by url) T, post P "+
-				    "where T.url = P.url order by inc DESC LIMIT 0, "+ limit ,function (error, results) {
+			mysql.query("SELECT P.url, P.txt, P.img, P.dt, T.ts, T.seq, T.inc, T.cnt  FROM time_stamp T, post P WHERE T.ts > "+getTime(1)+" and T.url=P.url ORDER BY inc DESC LIMIT 0, " + limit, function (error, results) {
 			if (error) {
 				console.log('Select Error: ' + error.message);
 				mysql.end();
@@ -69,6 +67,7 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 				mysql.end();
 				onErr();
 			}
+				console.log(results);
 				onSuccess(results);
 			});
 		}
@@ -197,13 +196,16 @@ function insertBlog(hostname) {
 /*
  * Returns the current time in this format Last Track: 2013-03-11 23:45:57
  */
-function getTime(){
-  var currentdate = new Date();
-  var datetime = currentdate.getFullYear() + "-" + checknumber(currentdate.getMonth()+1) + "-" + checknumber(currentdate.getDate()) + " "
-                + currentdate.getHours() + ":"  
-                + currentdate.getMinutes() + ":" 
-                + currentdate.getSeconds() + "EST";
-  return datetime;
+function getTime(lastHour){
+	var currentdate = new Date();
+	if (lastHour) {
+		currentdate.setHours(currentdate.getHours() - 1);
+	}
+	var datetime = currentdate.getFullYear() + "-" + checknumber(currentdate.getMonth()+1) + "-" + checknumber(currentdate.getDate()) + " "
+		      + currentdate.getHours() + ":"  
+		      + currentdate.getMinutes() + ":" 
+		      + currentdate.getSeconds() + "EST";
+	return datetime;
 }
 
 /*
@@ -379,8 +381,9 @@ function updateDB(){
 
 http.createServer(function(req, res) {
 	if (req.url == '/') {
+		time = {"last": getTime(1), "current": getTime()};
 		res.writeHead(200);
-		res.end(getTime());
+		res.end(JSON.stringify(time));
 	}
 	if (req.method == 'POST') {
 		// parameter: blog
@@ -435,7 +438,7 @@ http.createServer(function(req, res) {
 				getTrendInfo("", order, limit, 2, function(trendinfo) {
 // 					res.end(JSON.stringify(trendinfo));
 					res.writeHead(200);
-   					console.log(trendinfo);
+//    					console.log(trendinfo);
 					res.end();
 				});
 			});
