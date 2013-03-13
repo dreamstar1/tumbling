@@ -166,6 +166,16 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 					}
 				});
 			}
+			else {
+				var cols = "ts, url, seq, inc, cnt";
+				console.log("exists in ts");
+				mysql.query("insert into " + tbl + " (" + cols +") values ('" + data + "')", function (err, results, fields) {
+					if (err) {
+						console.log('Insert Error: ' + error.message);
+						mysql.end();
+					}
+				});
+			}
 		});
 	}
 }
@@ -248,41 +258,62 @@ function insertLikes(hostname) {
 	}) 
 }
 
-function insertTracking(post_url, count) {
-	var cols = "ts, url, seq, inc, cnt";
-	var vals;
-
-	var ts = getTime();
-	var url = post_url;
-	var cnt = count;
-
-	var note_count = database("GET", POST_TBL, "note_count", post_url, "");
-	var inc = cnt - note_count[0].note_count;
-	var seq;
-	if (!database("EXISTS", TMSTMP_TBL, "url", post_url)) {
-		vals = ts + "', "
-		+ "'" + url + "', "
-		+ "'" + seq + "', "
-		+ "'" + inc + "', "
-		+ "'" + cnt;
-		seq = 1;
-	} else {
-		seq = mysql.query("select max(seq) as max_seq from time_stamp where url = 'post_url'", function (error, results, fields) {
+/*
+ * updateTracking helper. Get the largest seq value for post
+ */
+function getMaxSeq(post_url, onSuccess, onErr) {
+	mysql.query("select max(seq) as max_seq from time_stamp where url = '"+post_url+"'", function (error, results, fields) {
 		if (error) {
 		  console.log('Select MAX Error: ' + error.message);
 		  mysql.end();
-		  return;
+		  onErr();
 		}
-		return results;
-		});
-		seq = seq[0].max_seq;
-		vals = ts + "', "
-		+ "'" + url + "', "
-		+ "'" + seq + "', "
-		+ "'" + inc + "', "
-		+ "'" + cnt;
-	}
-	database("INSERT", TMSTMP_TBL, cols, vals);
+		onSuccess(results[0].max_seq);
+	});
+}
+
+/*
+ * updateTracking helper. Get the note_count value
+ */
+function getInc(post_url, seq, onSuccess, onErr) {
+		mysql.query("select cnt from time_stamp where url = '"+post_url+"' and seq = '"+seq+"'", function (error, results, fields) {
+		if (error) {
+		  console.log('Select INC Error: ' + error.message);
+		  mysql.end();
+		  onErr();
+		}
+		onSuccess(results[0].cnt);
+	});
+}
+
+/*
+ * Update time_stamp table
+ */
+function updateTracking(post_url, count) {
+	var vals;
+	
+	var ts = getTime();
+	var url = post_url;
+	var seq = 0;
+	var inc = 0;
+	var cnt = count;
+	
+	getMaxSeq(post_url, function (sequence) {seq = sequence + 1;
+											getInc(post_url, seq-1, function(note_count) {
+																						if (seq-1 != 0) {
+																							inc = count - note_count;
+																						} else {
+																							inc = 0;
+																						}
+																						
+																							vals = ts + "', "
+																							+ "'" + url + "', "
+																							+ "'" + seq + "', "
+																							+ "'" + inc + "', "
+																							+ "'" + cnt;
+																							insertDB(TMSTMP_TBL, vals, post_url);
+											}, function(err) {console.log('getInc Error: ' + error.message);});
+	}, function(err) {console.log('getMaxSeq Error: ' + error.message);});
 }
 
 /*
