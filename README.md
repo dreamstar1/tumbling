@@ -1,13 +1,20 @@
- names of all your team members,
- 
- which CDF environment (greywolf/redwolf) 
- 
- and port your server is running on
- 
- details about your database, 
- 
- the various components in your system and how they interact (sequence diagram), inputs outputs functions etc
+Team Members
+-------
+Allen <br>
+Henry <br>
+Simon <br>
+Zheng (Lionheart) Xiong    c3xiongz <br>
 
+
+CDF environment
+-------
+greywolf/redwolf <br>
+port:31355 <br>
+
+
+Sequence Diagram (not done)
+---------
+the various components in your system and how they interact (sequence diagram), inputs outputs functions etc
 
 Database Diagram
 ------
