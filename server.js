@@ -13,7 +13,6 @@ MIME_TYPES ={
 //handling tumblr
 var KEY = 'VdAQkUPDY46fUmqRVGqRCY3ncJvrx6SDKAl5bQN7Tw2xZgxeY9';
 //timeout
-var timeout;
 // Handling Database
 var _mysql = require("./node-v0.8.18-linux-x86/bin/node_modules/mysql");
 var _HOST = "dbsrv1.cdf.toronto.edu";
@@ -38,70 +37,85 @@ var mysql = _mysql.createConnection({
 });
 
 
-	mysql.connect(function(error, results) {
-		if(error) {
-			console.log('Connection Error: ' + error.message);
-			return;
-		}
-		console.log('Connected to database');
-	});
-
-
+mysql.connect(function(error, results) {
+	if(error) {
+		console.log('Connection Error: ' + error.message);
+		return;
+	}
+	console.log('Connected to database');
+});
 
 /*************************** FUNCTION FOR DATABASE INTERACTION ***************************/
+function extractData(basename, order, limit, onSuccess, onErr) {
+	if (basename == "") {
+		if (order == "Trending") {
+			mysql.query("select * " + 
+				    "from (select ts, url, inc, cnt, max(seq) from time_stamp group by url) T, post P "+
+				    "where T.url = P.url order by inc DESC LIMIT 0, "+ limit ,function (error, results) {
+			if (error) {
+				console.log('Select Error: ' + error.message);
+				mysql.end();
+				onErr();
+			}
+				onSuccess(results);
+			});
+		}
+		else if (order == "Recent") {
+			mysql.query("select * from post order by dt DESC LIMIT 0, "+ limit ,function (error, results) {
+			if (error) {
+				console.log('Select Error: ' + error.message);
+				mysql.end();
+				onErr();
+			}
+				onSuccess(results);
+			});
+		}
+	}
+	else if (basename) {
+		if (order == "Trending") {
+			mysql.query("select * " + 
+				    "from (select ts, url, inc, cnt, max(seq) from time_stamp group by url) T, post P "+
+				    "where T.url = P.url and P.blog_url = '"+ basename +"' order by inc DESC LIMIT 0, "+ limit ,function (error, results) {
+			if (error) {
+				console.log('Select Error: ' + error.message);
+				mysql.end();
+				onErr();
+			}
+				onSuccess(results);
+			});
+			
+		}
+		else if (order == "Recent") {
+			mysql.query("select * from post where blog_url = '"+ basename + "'"+ "order by dt DESC LIMIT 0, "+ limit ,function (error, results) {
+				if (error) {
+					console.log('Select Error: ' + error.message);
+					mysql.end();
+					onErr();
+				}
+				onSuccess(results);
+			});
+		  
+		}
+	}
+}
 
 // 		posts = database("GET", POST_TBL, "", "*", "");
 function database(cmd, tbl, field, value, key) {
 	
 	if (cmd == "INSERT") {
-		mysql.query("insert into " + tbl + " (" + field + ") values ('" + value + "')", 
-					function (error, results, fields) {
-			if (error) {
-				console.log('Insert Error: ' + error.message);
-				mysql.end();
-				return;
-			}
-		});
-	} else if (cmd == "GET") {
-		console.log("we are in the get with a value = " + value);
-		if (value == "*" && field == "") {
-			console.log("load everything in the databaseee!! " + tbl);
-			console.log("select * from " + tbl);
-			mysql.query("select * from post", function (error, results, fields) {
-// 				if (error) {
-// 					console.log('Select Error: ' + error.message);
-// 					mysql.end();
-// 					return;
-// 				}
-				return results;
-				console.log("DEBUGGING GET");
-				console.log(results);
-			});
+		mysql.query("select exists(select * from " + tbl + " where " + field + " = '" + value + "') as exist", function (error, results, fields) {
 			
-			console.log("out of select * from " + tbl);
-		}
-		else if (value == "*") {
-			mysql.query("select * from " + tbl + " where " + field + " = '" + value + "'", function (error, results, fields) {
+			
+			
+			mysql.query("insert into " + tbl + " (" + field + ") values ('" + value + "')", 
+						function (error, results, fields) {
 				if (error) {
-					console.log('Select Error: ' + error.message);
+					console.log('Insert Error: ' + error.message);
 					mysql.end();
-				}
-				if (results.length > 0) {
-					return results;
+					return;
 				}
 			});
-		}
-		else {
-			mysql.query("select " + value + " from " + tbl + " where " + field + " = '" + key + "'", function (error, results, fields) {
-				if (error) {
-					console.log('Select Error: ' + error.message);
-					mysql.end();
-				}
-				if (results.length > 0) {
-					return results;
-				}
-			});
-		}
+		});
 	}
 	else if (cmd == "EXISTS") {
 		console.log("running exists");
@@ -161,7 +175,7 @@ function getTime(){
  * Adds an 0 to the number if it is smaller than 10
  */
 function checknumber(time){
-  return (time < 10) ? ("0" + time) : time;  
+	 return (time < 10) ? ("0" + time) : time;  
 }
 
 function insertLikesHelper(hostname, count) {
@@ -171,7 +185,8 @@ function insertLikesHelper(hostname, count) {
 			if (!error) {
 				var post;
 				var vals;
-				var cols = "url, blog_url, txt, img, dt, last_track, note_count"; 
+				var pcols = "url, blog_url, txt, img, dt";
+				var tcols = "ts, url, seq, inc, cnt";
 				for (var i=0; i<body.response.liked_count; i++) {
 					post = body.response.liked_posts[i];
 					if (post) {
@@ -181,19 +196,22 @@ function insertLikesHelper(hostname, count) {
 						} else {
 							img = "";
 						}
-						vals = post.post_url + "', " 
+						pvals = post.post_url + "', " 
 						 + "'" + hostname + "', "
 						 + "'" + post.slug + "', "
 						 + "'" + img + "', "
-						 + "'" + post.date + "', "
-						 + "'" + getTime() + "', "
-						 + "'" + post.note_count;
+						 + "'" + post.date;
+						 
+						tvals = getTime() + "', '"
+						 + post.post_url + "', '"
+						 + "0', '0', '" + post.note_count;
 						//vals = "a', 'b', 'c', 'd', '" + post.date + "', '" + post.date + "', '1";
-						database("INSERT", POST_TBL, cols, vals, "");
+						database("INSERT", POST_TBL, pcols, pvals, "");
+						database("INSERT", TMSTMP_TBL, tcols, tvals, "");
 					}
 				}
 			}
-		}) 
+		}); 
 	}
 }
 /*
@@ -297,39 +315,23 @@ function getPostInfo(post_url) {
 */
 function getTrendInfo(basename, order, limit, method_type) {
 	var trends = {"trending": [], "order" : order, "limit" : limit};
-
-	var posts;
 	if (method_type == 1) { // method is GET /blog/{base-hostname}/trends
 		// get post urls that are related to a specific basename (blog)
-		posts = database("GET", POST_TBL, "blog_url", "*", basename);
+// 		//database("GET", POST_TBL, "blog_url", "*", basename);
 
 	} else { // method is GET /blog/trends
 		// get all posts that exist in the database
-		console.log("we are in getTrendInfo with method_type 1, getting trends thank you.");
-		posts = database("GET", POST_TBL, "", "*", "");
-		console.log("Post = " + posts);
-	}
-
-	// when we get to figuring out order we're gonna need this
-	/*
-	var filteredPosts = new Array();
-	if (order == "Trending") {
-	filteredPosts = filterByTrending(posts);
-	} else {
-	filteredPosts = filterByRecent(posts);
-	}*/
-
-	// change 'posts' to filteredPosts after filtering functions are implemented
-	if (posts) {
-		for (var i=0; i<posts.length; i++) {
-			var post = getPostInfo(posts[i].url);
-			trends.trending.push(post);
-		}
-	}
+		console.log("we are in getTrendInfo with method_type 1, getting trends thank you. " + basename);
+		extractData(basename, order, limit, 
+			    function(posts) { console.log(posts); }, function() { console.log("ERROR!"); });
 
 	return trends;
+	}
 }
 
+function updateDB(){
+	
+}
 /*************************** SERVER THAT WILL HANDLE EACH EVENT ***************************/
 
 
@@ -380,36 +382,29 @@ http.createServer(function(req, res) {
 	} else if (req.method == 'GET') {
 		console.log(req.url);
 		if (req.url == '/blogs/trends') {
-			var data;
-			var param;
+			var data = "";
 			var order = "";
-			var limit = ""
-			;
+			var limit = "";
+			
 			req.on('data', function(buf){
 				data += buf.toString();
 			});
+			
 			var order = "";
-			var limit = "";
+			var limit = 20;
 			req.on('end', function() {
-				param = qs.parse(data);
+				var param = qs.parse(data);
 				order = param.order; // order is always presented
 				if (param.length > 1) {
 				      limit = param.limit; // find limit if exists
 				}
+				console.log("Order = " + order);
+				console.log("Limit = " + limit);
+				var trendinfo = getTrendInfo("", order, limit, 2);
+				console.log("trendinfo = " + trendinfo);
+				res.writeHead(200);
+				res.end();
 			});
-// 			var trendinfo = getTrendInfo(POST_TBL, order, limit, 2);
-			mysql.query("select * from post", function (error, results, fields) {
-				if (error) {
-					console.log('Select Error: ' + error.message);
-					mysql.end();
-					return;
-				}
-// 				return results;
-				console.log("DEBUGGING GET");
-				console.log(results);
-			});
-			res.writeHead(200);
-			res.end();
 		}
 		// parameter: order as 1st argument of -d in curl
 		//	      "Trending" or "Recent" indicating how to order JSON
