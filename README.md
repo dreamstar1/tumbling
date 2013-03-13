@@ -89,22 +89,6 @@ Database Diagram
         <td>/</td>
     </tr>
     
-    <tr>
-        <td>last_track</td>
-        <td>not null</td>
-        <td>date</td>
-        <td>/</td>
-        <td>/</td>
-    </tr>
-    
-    <tr>
-        <td>note_count</td>
-        <td>not null</td>
-        <td>integer</td>
-        <td>/</td>
-        <td>/</td>
-    </tr>
-    
 </table>
 
 
@@ -159,7 +143,7 @@ Database Diagram
     <tr>
         <td>ts</td>
         <td>/</td>
-        <td>date</td>
+        <td>timestamp</td>
         <td>/</td>
         <td>/</td>
     </tr>
@@ -195,5 +179,39 @@ Database Diagram
         <td>/</td>
         <td>/</td>
     </tr>
+
     
 </table>
+
+
+
+
+####LIKES
+
+<table>
+    <tr>
+        <td><b>column</b></td>
+        <td><b>property</b></td>
+        <td><b>type</b></td>
+        <td><b>size limit</b></td>
+        <td><b>reference from</b></td>
+    </tr>
+    
+    <tr>
+        <td>url</td>
+        <td>foreign key, not null</td>
+        <td>char</td>
+        <td>50</td>
+        <td>POST 'url'</td>
+    </tr>
+
+    <tr>
+        <td>person</td>
+        <td>foreign key, not null</td>
+        <td>char</td>
+        <td>50</td>
+        <td>BLOG 'url'</td>
+    </tr>
+    
+</table>
+
