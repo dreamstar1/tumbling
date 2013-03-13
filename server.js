@@ -37,6 +37,7 @@ var mysql = _mysql.createConnection({
 	database: _DATABASE
 });
 
+
 	mysql.connect(function(error, results) {
 		if(error) {
 			console.log('Connection Error: ' + error.message);
@@ -65,22 +66,25 @@ function database(cmd, tbl, field, value, key) {
 		console.log("we are in the get with a value = " + value);
 		if (value == "*" && field == "") {
 			console.log("load everything in the databaseee!! " + tbl);
-			console.log("select * from '" + tbl + "'");
-			mysql.query("select * from '" + tbl + "'", function (error, results) {
-				if (error) {
-					console.log('Select Error: ' + error.message);
-					mysql.end();
-					return;
-				}
+			console.log("select * from " + tbl);
+			mysql.query("select * from post", function (error, results, fields) {
+// 				if (error) {
+// 					console.log('Select Error: ' + error.message);
+// 					mysql.end();
+// 					return;
+// 				}
+				return results;
+				console.log("DEBUGGING GET");
 				console.log(results);
 			});
+			
+			console.log("out of select * from " + tbl);
 		}
 		else if (value == "*") {
 			mysql.query("select * from " + tbl + " where " + field + " = '" + value + "'", function (error, results, fields) {
 				if (error) {
 					console.log('Select Error: ' + error.message);
 					mysql.end();
-					return;
 				}
 				if (results.length > 0) {
 					return results;
@@ -92,7 +96,6 @@ function database(cmd, tbl, field, value, key) {
 				if (error) {
 					console.log('Select Error: ' + error.message);
 					mysql.end();
-					return;
 				}
 				if (results.length > 0) {
 					return results;
@@ -317,9 +320,11 @@ function getTrendInfo(basename, order, limit, method_type) {
 	}*/
 
 	// change 'posts' to filteredPosts after filtering functions are implemented
-	for (var i=0; i<posts.length; i++) {
-		var post = getPostInfo(posts[i].url);
-		trends.trending.push(post);
+	if (posts) {
+		for (var i=0; i<posts.length; i++) {
+			var post = getPostInfo(posts[i].url);
+			trends.trending.push(post);
+		}
 	}
 
 	return trends;
@@ -386,14 +391,24 @@ http.createServer(function(req, res) {
 			var order = "";
 			var limit = "";
 			req.on('end', function() {
-				param = qs.parse(_date);
+				param = qs.parse(data);
 				order = param.order; // order is always presented
 				if (param.length > 1) {
 				      limit = param.limit; // find limit if exists
 				}
 			});
-			var trendinfo = getTrendInfo(POST_TBL, order, limit, 2);
-			res.write(trendinfo);
+// 			var trendinfo = getTrendInfo(POST_TBL, order, limit, 2);
+			mysql.query("select * from post", function (error, results, fields) {
+				if (error) {
+					console.log('Select Error: ' + error.message);
+					mysql.end();
+					return;
+				}
+// 				return results;
+				console.log("DEBUGGING GET");
+				console.log(results);
+			});
+			res.writeHead(200);
 			res.end();
 		}
 		// parameter: order as 1st argument of -d in curl
@@ -416,9 +431,9 @@ http.createServer(function(req, res) {
 // 		}
 
 		//return the ordered posts of the specified hostname's likes
-		console.log(split_url[1]);
-		console.log(split_url[split_url.length-1]);
-		console.log(split_url[2]);
+// 		console.log(split_url[1]);
+// 		console.log(split_url[split_url.length-1]);
+// 		console.log(split_url[2]);
 		// _ / blog / hostname/ trends
 		// 0     1        2        3
 		if (split_url.length == 3) {
@@ -442,7 +457,7 @@ http.createServer(function(req, res) {
 						}
 					});
 					var trendinfo = getTrendInfo(POST_TBL, order, limit, 1);
-					res.write(trendinfo);
+					res.writeHead(200);
 					res.end();
 					
 				}
