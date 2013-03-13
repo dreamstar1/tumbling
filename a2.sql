@@ -10,7 +10,7 @@ create table post (
 	txt varchar(50),
 	img varchar(50),
 	dt timestamp not null,
-	last_track date not null,
+	last_track timestamp not null,
 	note_count integer not null
 );
 
@@ -23,7 +23,7 @@ create table image (
 -- time stamp associated with posts
 create table time_stamp (
   id integer auto_increment primary key, 
-  ts date,
+  ts timestamp,
   url varchar(50) references post(url),
   seq integer,
   inc integer,
