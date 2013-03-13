@@ -319,6 +319,8 @@ function getTrendInfo(basename, order, limit, method_type) {
 		// get post urls that are related to a specific basename (blog)
 // 		//database("GET", POST_TBL, "blog_url", "*", basename);
 
+		extractData(basename, order, limit, 
+			    function(posts) { console.log(posts); }, function() { console.log("ERROR!"); });
 	} else { // method is GET /blog/trends
 		// get all posts that exist in the database
 		console.log("we are in getTrendInfo with method_type 1, getting trends thank you. " + basename);
