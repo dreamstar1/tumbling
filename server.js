@@ -74,14 +74,14 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 	}
 	else if (basename) {
 		if (order == "Trending") {
-			mysql.query("select * " + 
-				    "from (select ts, url, inc, cnt, max(seq) from time_stamp group by url) T, post P "+
-				    "where T.url = P.url and P.blog_url = '"+ basename +"' order by inc DESC LIMIT 0, "+ limit ,function (error, results) {
-			if (error) {
-				console.log('Select Error: ' + error.message);
-				mysql.end();
-				onErr();
-			}
+			mysql.query("SELECT P.url, P.txt, P.img, P.dt, T.ts, T.seq, T.inc, T.cnt  "+
+				    "FROM time_stamp T, (select post.url, post.txt, post.img, post.dt from post, blog, likes where likes.person=blog.url and blog.url="+basename+" likes.url=P.url) P"+
+				    "WHERE T.ts > "+getTime(1)+" and T.url=P.url ORDER BY inc DESC LIMIT 0, " + limit ,function (error, results) {
+				if (error) {
+					console.log('Select Error: ' + error.message);
+					mysql.end();
+					onErr();
+				}
 				onSuccess(results);
 			});
 			
