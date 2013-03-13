@@ -17,9 +17,9 @@ var KEY = 'VdAQkUPDY46fUmqRVGqRCY3ncJvrx6SDKAl5bQN7Tw2xZgxeY9';
 var _mysql = require("./node-v0.8.18-linux-x86/bin/node_modules/mysql");
 var _HOST = "dbsrv1.cdf.toronto.edu";
 var _PORT = "3306"; // standard sql PORT
-var _USER = "g2junhee";
-var _PASS = "eebiepic";
-var _DATABASE = "csc309h_g2junhee"; // this database? or a2.sql we created? 
+var _USER = "g2kuhenr";
+var _PASS = "uixifahf";
+var _DATABASE = "csc309h_g2kuhenr"; // this database? or a2.sql we created? 
 											/* we'll have to run a2.sql just 
 											 * once on csc309h_{cdf_user_name} to create the tables */
 // db tables
@@ -92,7 +92,7 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 					mysql.end();
 					onErr();
 				}
-				onSuccess(results);
+				
 			});
 		  
 		}
@@ -100,7 +100,7 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 }
 
 // 		posts = database("GET", POST_TBL, "", "*", "");
-function database(cmd, tbl, field, value, key) {
+function database(cmd, tbl, field, value, key, onSuccess, onErr) {
 	
 	if (cmd == "INSERT") {
 		mysql.query("select exists(select * from " + tbl + " where " + field + " = '" + value + "') as exist", function (error, results, fields) {
@@ -117,21 +117,23 @@ function database(cmd, tbl, field, value, key) {
 			});
 		});
 	}
+	
+	
 	else if (cmd == "EXISTS") {
 		console.log("running exists");
 		mysql.query("select exists(select * from " + tbl + " where " + field + " = '" + value + "') as exist", function (error, results, fields) {
 			if (error) {
 				console.log('Exists Error: ' + error.message);
 				mysql.end();
-				return;
+				onErr();
 			}
 			else if (results[0].exist == 1) {
 			  console.log("it exist");
-				return true;
+				onSuccess(true);
 			}
 			else {
 			  console.log("it doesn't exist");
-				return false;
+				onSuccess(false);
 			}
 		});
 	}
@@ -431,31 +433,35 @@ http.createServer(function(req, res) {
 // 		console.log(split_url[2]);
 		// _ / blog / hostname/ trends
 		// 0     1        2        3
-		if (split_url.length == 3) {
+		if (split_url.length == 4) {
 			var bt = split_url[1]+"/"+split_url[3];
-			if (bt == "blog/trend") {
+			if (bt == "blog/trends") {
 				var hostname = split_url[2];
-				if (database("EXISTS", "blog", "url", hostname, "")) {
+				database("EXISTS", "blog", "url", hostname, "", function(exist) {
+				  //if the hostname already exist in DB
 					//TODO: implement code to find trend with the hostname
-					var param;
-					var data;
-					req.on('data', function(buf) {
-						data += buf;
-					});
-					var order = "";
-					var limit = "";
-					req.on('end', function() {
-						param = qs.parse(data);
-						order = param.order; // order is always presented
-						if (param.length > 1) {
-						      limit = param.limit; // find limit if exists
-						}
-					});
-					var trendinfo = getTrendInfo(POST_TBL, order, limit, 1);
+ 					var param;
+ 					var data;
+ 					req.on('data', function(buf) {
+ 						data += buf;
+ 					});
+ 					var order = "";
+ 					var limit = "";
+ 					req.on('end', function() {
+ 						param = qs.parse(data);
+ 						order = param.order; // order is always presented
+ 						if (param.length > 1) {
+ 						      limit = param.limit; // find limit if exists
+ 						}
+ 					});
+ 					var trendinfo = getTrendInfo(POST_TBL, order, limit, 1);
+					
+					
 					res.writeHead(200);
 					res.end();
-					
-				}
+					}, function(err) 
+					//if hostname doesn't exist in DB
+					{console.log("NOPE it doesn't exist");});	  
 			}
 		}
 	}
