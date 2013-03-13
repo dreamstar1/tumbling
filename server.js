@@ -51,9 +51,7 @@ mysql.connect(function(error, results) {
 function extractData(basename, order, limit, onSuccess, onErr) {
 	if (basename == "") {
 		if (order == "Trending") {
-			mysql.query("select * " + 
-				    "from (select ts, url, inc, cnt, max(seq) from time_stamp group by url) T, post P "+
-				    "where T.url = P.url order by inc DESC LIMIT 0, "+ limit ,function (error, results) {
+			mysql.query("SELECT P.url, P.txt, P.img, P.dt, T.ts, T.seq, T.inc, T.cnt  FROM time_stamp T, post P WHERE T.ts > "+getTime(1)+" and T.url=P.url ORDER BY inc DESC LIMIT 0, " + limit, function (error, results) {
 			if (error) {
 				console.log('Select Error: ' + error.message);
 				mysql.end();
@@ -63,12 +61,13 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 			});
 		}
 		else if (order == "Recent") {
-			mysql.query("select * from post order by dt DESC LIMIT 0, "+ limit ,function (error, results) {
+			mysql.query("select * from time_stamp T, (select * from post order by dt DESC limit 0, "+limit+") P where T.url=P.url order by dt desc, seq desc" ,function (error, results) {
 			if (error) {
 				console.log('Select Error: ' + error.message);
 				mysql.end();
 				onErr();
 			}
+				console.log(results);
 				onSuccess(results);
 			});
 		}
@@ -88,13 +87,15 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 			
 		}
 		else if (order == "Recent") {
-			mysql.query("select * from post where blog_url = '"+ basename + "'"+ "order by dt DESC LIMIT 0, "+ limit ,function (error, results) {
+			mysql.query("select * " + 
+				    "from time_stamp T, (select P.url, P.txt, P.img, P.dt from blog B, post P, likes L where L.person=B.url and L.url=P.url and B.url="+basename +" order by dt DESC limit 0, "+limit+") D " +
+				    "where T.url=D.url order by dt desc, seq desc" ,function (error, results) {
 				if (error) {
 					console.log('Select Error: ' + error.message);
 					mysql.end();
 					onErr();
 				}
-				
+				onSuccess(results);
 			});
 		  
 		}
@@ -134,7 +135,6 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 						mysql.end();
 					}
 				});
-				console.log("insert into " + LIKES_TBL + " values ('"+data.post_url+"', '"+hostname+"')");
 				mysql.query("insert into " + LIKES_TBL + " values ('"+data.post_url+"', '"+hostname+"')", function(err, results, fields) {
 					if (err) {
 						console.log('Insert Error: ' + error.message);
@@ -166,6 +166,16 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 					}
 				});
 			}
+			else {
+				var cols = "ts, url, seq, inc, cnt";
+				console.log("exists in ts");
+				mysql.query("insert into " + tbl + " (" + cols +") values ('" + data + "')", function (err, results, fields) {
+					if (err) {
+						console.log('Insert Error: ' + error.message);
+						mysql.end();
+					}
+				});
+			}
 		});
 	}
 }
@@ -190,20 +200,22 @@ function existsInDB(tbl, field, value, key, onSuccess, onErr) {
  */
 function insertBlog(hostname) {
 	// Url of a blogger that we are tracking.
-	console.log("insertBlog("+hostname+")");
 	insertDB(BLOG_TBL, hostname);
 }
 
 /*
  * Returns the current time in this format Last Track: 2013-03-11 23:45:57
  */
-function getTime(){
-  var currentdate = new Date();
-  var datetime = currentdate.getFullYear() + "-" + checknumber(currentdate.getMonth()+1) + "-" + checknumber(currentdate.getDate()) + " "
-                + currentdate.getHours() + ":"  
-                + currentdate.getMinutes() + ":" 
-                + currentdate.getSeconds() + "EST";
-  return datetime;
+function getTime(lastHour){
+	var currentdate = new Date();
+	if (lastHour) {
+		currentdate.setHours(currentdate.getHours() - 1);
+	}
+	var datetime = currentdate.getFullYear() + "-" + checknumber(currentdate.getMonth()+1) + "-" + checknumber(currentdate.getDate()) + " "
+		      + currentdate.getHours() + ":"  
+		      + currentdate.getMinutes() + ":" 
+		      + currentdate.getSeconds() + "EST";
+	return datetime;
 }
 
 /*
@@ -246,41 +258,62 @@ function insertLikes(hostname) {
 	}) 
 }
 
-function insertTracking(post_url, count) {
-	var cols = "ts, url, seq, inc, cnt";
-	var vals;
-
-	var ts = getTime();
-	var url = post_url;
-	var cnt = count;
-
-	var note_count = database("GET", POST_TBL, "note_count", post_url, "");
-	var inc = cnt - note_count[0].note_count;
-	var seq;
-	if (!database("EXISTS", TMSTMP_TBL, "url", post_url)) {
-		vals = ts + "', "
-		+ "'" + url + "', "
-		+ "'" + seq + "', "
-		+ "'" + inc + "', "
-		+ "'" + cnt;
-		seq = 1;
-	} else {
-		seq = mysql.query("select max(seq) as max_seq from time_stamp where url = 'post_url'", function (error, results, fields) {
+/*
+ * updateTracking helper. Get the largest seq value for post
+ */
+function getMaxSeq(post_url, onSuccess, onErr) {
+	mysql.query("select max(seq) as max_seq from time_stamp where url = '"+post_url+"'", function (error, results, fields) {
 		if (error) {
 		  console.log('Select MAX Error: ' + error.message);
 		  mysql.end();
-		  return;
+		  onErr();
 		}
-		return results;
-		});
-		seq = seq[0].max_seq;
-		vals = ts + "', "
-		+ "'" + url + "', "
-		+ "'" + seq + "', "
-		+ "'" + inc + "', "
-		+ "'" + cnt;
-	}
-	database("INSERT", TMSTMP_TBL, cols, vals);
+		onSuccess(results[0].max_seq);
+	});
+}
+
+/*
+ * updateTracking helper. Get the note_count value
+ */
+function getInc(post_url, seq, onSuccess, onErr) {
+		mysql.query("select cnt from time_stamp where url = '"+post_url+"' and seq = '"+seq+"'", function (error, results, fields) {
+		if (error) {
+		  console.log('Select INC Error: ' + error.message);
+		  mysql.end();
+		  onErr();
+		}
+		onSuccess(results[0].cnt);
+	});
+}
+
+/*
+ * Update time_stamp table
+ */
+function updateTracking(post_url, count) {
+	var vals;
+	
+	var ts = getTime();
+	var url = post_url;
+	var seq = 0;
+	var inc = 0;
+	var cnt = count;
+	
+	getMaxSeq(post_url, function (sequence) {seq = sequence + 1;
+											getInc(post_url, seq-1, function(note_count) {
+																						if (seq-1 != 0) {
+																							inc = count - note_count;
+																						} else {
+																							inc = 0;
+																						}
+																						
+																							vals = ts + "', "
+																							+ "'" + url + "', "
+																							+ "'" + seq + "', "
+																							+ "'" + inc + "', "
+																							+ "'" + cnt;
+																							insertDB(TMSTMP_TBL, vals, post_url);
+											}, function(err) {console.log('getInc Error: ' + error.message);});
+	}, function(err) {console.log('getMaxSeq Error: ' + error.message);});
 }
 
 /*
@@ -298,55 +331,74 @@ function insertTracking(post_url, count) {
 /*
  * Return post information in JSON format
  */
-function getPostInfo(post_url) {
-
-	var trending = { "url": "", "text": "", "image": "", "date": "", "last_track": "", "last_count": 0, "tracking": []};
-	
-	// database param cmd, tbl, field, value, key
-	// get the posts associated with hostname
-	var post = database("GET", POST_TBL, "url", post_url);
-		
-	trending.url = post[0].url;
-	trending.text = post[0].txt;
-	trending.image = post[0].img;
-	trending.date = post[0].dt;
-	trending.last_track = post[0].last_track;
-	trending.last_count = post[0].last_count;
-	
-	// get the trackings associated with the post
-	var tracking = database("GET", TMSTMP_TBL, "url", post_url);
-	for (var i=0; i<tracking.length; i++) {
-		var track = {"timestamp": "", "sequence": 0, "increment": 0, "count": 0 }
-			
-		track.timestamp = tracking[i].ts;
-		track.sequence = tracking[i].seq;
-		track.increment = tracking[i].inc;
-		track.count = tracking[i].cnt;
-			
-		trending.tracking.push(track);
+function trendJSON(data, order, limit, onSuccess) {
+	var trends = {"order" : order, "limit" : limit, "trending": []};
+	trends.order = order;
+	trends.limit = limit;
+	var tempTrend = [];
+	var i = 0;
+	while (i < data.length) {
+		var trend = { "url": "", "text": "", "image": "", "date": "", "last_track": "", "last_count": 0, "tracking": []};
+		if (data[i].seq > 0) {
+			post = data[i];
+			trend.url = post.url;
+			trend.text = post.txt;
+			trend.image = post.img;
+			trend.date = post.dt;
+			trend.last_track = post.ts;
+			trend.last_count = post.cnt;
+			var j = post.seq;
+			while (j > 0) {
+				track = {"timestamp": "", "sequence": 0, "increment": 0, "count": 0};
+				post = data[i];
+				track.timestamp = post.ts;
+				track.sequence = post.seq;
+				track.increment = post.inc;
+				track.count = post.cnt;
+				trend.tracking.push(track);
+				i++;
+				j--;
+			}
+			tempTrend.push(trend);
+			i++;
+		} else {
+			post = data[i];
+			trend.url = post.url;
+			trend.text = post.txt;
+			trend.image = post.img;
+			trend.date = post.dt;
+			trend.last_track = post.ts;
+			trend.last_count = post.cnt;
+			tempTrend.push(trend);
+			i++;
+		}
 	}
-
-	return trending;
+	trends.trending = tempTrend;
+	onSuccess(trends);
 }
 
 /*
 * Return trend information specified by a basename in JSON format
 */
-function getTrendInfo(basename, order, limit, method_type) {
-	var trends = {"trending": [], "order" : order, "limit" : limit};
+function getTrendInfo(basename, order, limit, method_type , onSuccess) {
 	if (method_type == 1) { // method is GET /blog/{base-hostname}/trends
 		// get post urls that are related to a specific basename (blog)
 // 		//database("GET", POST_TBL, "blog_url", "*", basename);
 
 		extractData(basename, order, limit, 
-			    function(posts) { console.log(posts); }, function() { console.log("ERROR!"); });
+			function(posts) {
+				trendJSON(posts, order, limit, function(json) {
+					onSuccess(json);
+				});
+			}, function() { console.log("ERROR!"); });
 	} else { // method is GET /blog/trends
 		// get all posts that exist in the database
-		console.log("we are in getTrendInfo with method_type 1, getting trends thank you. " + basename);
 		extractData(basename, order, limit, 
-			    function(posts) { console.log(posts); }, function() { console.log("ERROR!"); });
-
-	return trends;
+			function(posts) { 
+				trendJSON(posts, order, limit, function(json) {
+					onSuccess(json);
+				});
+			}, function() { console.log("ERROR!"); });
 	}
 }
 
@@ -379,8 +431,9 @@ function updateDB(){
 
 http.createServer(function(req, res) {
 	if (req.url == '/') {
+		time = {"last": getTime(1), "current": getTime()};
 		res.writeHead(200);
-		res.end();
+		res.end(JSON.stringify(time));
 	}
 	if (req.method == 'POST') {
 		// parameter: blog
@@ -405,32 +458,6 @@ http.createServer(function(req, res) {
 			});
 		}
 	} else if (req.method == 'GET') {
-		console.log(req.url);
-		if (req.url == '/blogs/trends') {
-			var data = "";
-			var order = "";
-			var limit = "";
-			
-			req.on('data', function(buf){
-				data += buf.toString();
-			});
-			
-			var order = "";
-			var limit = 20;
-			req.on('end', function() {
-				var param = qs.parse(data);
-				order = param.order; // order is always presented
-				if (param.length > 1) {
-				      limit = param.limit; // find limit if exists
-				}
-				console.log("Order = " + order);
-				console.log("Limit = " + limit);
-				var trendinfo = getTrendInfo("", order, limit, 2);
-				console.log("trendinfo = " + trendinfo);
-				res.writeHead(200);
-				res.end();
-			});
-		}
 		// parameter: order as 1st argument of -d in curl
 		//	      "Trending" or "Recent" indicating how to order JSON
 		//	      "Trending" - posts that have the largest increments in note_count in the last hour
@@ -438,25 +465,38 @@ http.createServer(function(req, res) {
 		// parameter: limit (optional) as 2nd argument of -d in curl
 		//	      the maximum number of results to return.
 		// RESPONSE: JSON including trend, or recent info
+		console.log(req.url);
 		var split_url = req.url.split("/");
-// 		if (req.url == '/blogs/trends') {
-// 			req.on('data', function(buf){
-// 				var curl_data = buf.toString();
-// 				var order = curl_data.split(" ")[0]; //first argument of -d as order
-// 				if (curl_data.split(" ")[1] != undefined){
-// 					var limit = curl_data.split(" ")[1]; //second argument of -d as limit
-// 				}
-// 			});
-// 	
-// 		}
-
+		if (req.url == '/blogs/trends') {
+			var data = "";
+			
+			req.on('data', function(buf){
+				data += buf.toString();
+			});
+			
+			var order = "Recent";
+			var limit = 20;
+			req.on('end', function() {
+				var param = qs.parse(data);
+				if (param.order) {
+					order = param.order; // order is always presented
+				  
+				}
+				if (param.limit) {
+				      limit = param.limit; // find limit if exists
+				}
+				getTrendInfo("", order, limit, 2, function(trendinfo) {
+// 					res.end(JSON.stringify(trendinfo));
+					res.writeHead(200);
+//    					console.log(trendinfo);
+					res.end();
+				});
+			});
+		}
 		//return the ordered posts of the specified hostname's likes
-// 		console.log(split_url[1]);
-// 		console.log(split_url[split_url.length-1]);
-// 		console.log(split_url[2]);
 		// _ / blog / hostname/ trends
 		// 0     1        2        3
-		if (split_url.length == 4) {
+		else if (split_url.length == 4) {
 			var bt = split_url[1]+"/"+split_url[3];
 			if (bt == "blog/trends") {
 				var hostname = split_url[2];
