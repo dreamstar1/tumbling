@@ -351,7 +351,26 @@ function getTrendInfo(basename, order, limit, method_type) {
 }
 
 function updateDB(){
+	//cron to count to 1 hour
 	
+	//if new like in read from API -> update DB 
+	//if like in DB not in API -> delete column
+	
+	//what if someone deletes a post? not a problem cuz API will know
+	//post a new post? not a problem
+	//new blog created? not a problem
+	
+
+	// database param cmd, tbl, field, value, key	
+	var blogs = database("GET", BLOG_TBL, "url", "*");
+	//get all, return in array??? Need to be tested
+	for (var i = 0; i<blogs.length; i++){
+	    var blog = blogs[i].url;
+	    insertLikes(blog);
+	}
+	
+	
+	//note to Simon: haven't worked on deletion in DB
 }
 /*************************** SERVER THAT WILL HANDLE EACH EVENT ***************************/
 
