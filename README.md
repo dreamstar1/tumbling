@@ -1,9 +1,11 @@
 Team Members
--------
-Alon Sigal	                998156846 	g1sigal     <br>
+---------
+
+Alon Sigal                    998156846 	g1sigal     <br>
 Henry Ku 	                998551348	g2kuhenr    <br>
-Simon Song			                                <br>
+Simon Song			        998447006   g2junhee    <br>
 Zheng (Lionheart) Xiong     998182112   c3xiongz    <br>
+
 
 
 CDF environment
@@ -13,12 +15,14 @@ port:31355 <br>
 
 Additional Modules Installed
 ---------
-npm install request <br>
-npm install mysql<br>
-npm install cron<br>
-npm install querystring
+By using npm install <br>
+request <br>
+mysql <br>
+cron <br>
+querystring <br>
 
-Sequence Diagram (not done)
+
+Sequence Diagram
 ---------
 Open file "SequenceDiagram.dia" using Diagram Editor
 
@@ -39,7 +43,7 @@ Database Diagram
         <td>url</td>
         <td>primary</td>
         <td>char</td>
-        <td>50</td>
+        <td>500</td>
         <td>/</td>
     </tr>
 </table>

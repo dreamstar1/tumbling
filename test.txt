@@ -1,7 +1,3 @@
-npm install request
-npm install mysql
-npm install cron
-npm install querystring
 
 Using Screen:
 screen = runs a new session
@@ -11,14 +7,23 @@ ctrl+a \ = kills session
 ctrl+a d = detach
 screen -raAd = reattach then kill to really kill it  
 
+
+Testing:
+
 POST
 
 curl -X POST -d blog=songjoo1.tumblr.com http://localhost:31355/blog
-
-
+curl -X POST -d blog=dreamstar2.tumblr.com http://localhost:31355/blog
 
 GET
 
 
+curl -X GET -d "order=Recent&limit=10" http://localhost:31355/blog/songjoo1.tumblr.com/trends 
+curl -X GET -d "order=Trending&limit=10" http://localhost:31355/blog/songjoo1.tumblr.com/trends 
+curl -X GET -d "order=Recent&limit=30" http://localhost:31355/blog/songjoo1.tumblr.com/trends 
+curl -X GET -d "order=Trending&limit=30" http://localhost:31355/blog/songjoo1.tumblr.com/trends 
+
 curl -X GET -d "order=Recent&limit=10" http://localhost:31355/blogs/trends 
 curl -X GET -d "order=Trending&limit=10" http://localhost:31355/blogs/trends 
+curl -X GET -d "order=Recent&limit=30" http://localhost:31355/blogs/trends 
+curl -X GET -d "order=Trending&limit=30" http://localhost:31355/blogs/trends 
