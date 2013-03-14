@@ -1,5 +1,5 @@
 Team Members
-=======
+---------
 
 Alon Sigal                    998156846 	g1sigal     <br>
 Henry Ku 	                998551348	g2kuhenr    <br>
@@ -15,7 +15,6 @@ port:31355 <br>
 
 Additional Modules Installed
 ---------
-<<<<<<< HEAD
 By using npm install <br>
 request <br>
 mysql <br>
