@@ -20,7 +20,7 @@ npm install querystring
 
 Sequence Diagram (not done)
 ---------
-the various components in your system and how they interact (sequence diagram), inputs outputs functions etc
+Open file "SequenceDiagram.dia" using Diagram Editor
 
 Database Diagram
 ------
