@@ -11,11 +11,6 @@ create table post (
 	dt timestamp not null
 );
 
--- store image and post associated with it
-create table image (
-	url varchar(500),
-	post varchar(500) references post(url)
-);
 
 -- time stamp associated with posts
 create table time_stamp (
@@ -26,12 +21,3 @@ create table time_stamp (
 	inc integer,
 	cnt integer
 );
-
-create table likes (
-	url varchar(500) not null,
-	person varchar(500) not null,
-	primary key(url, person),
-	foreign key(url) references post(url),
-	foreign key(person) references blog(url)
-);
-
