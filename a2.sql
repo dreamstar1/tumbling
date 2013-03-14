@@ -21,3 +21,9 @@ create table time_stamp (
 	inc integer,
 	cnt integer
 );
+
+create table likes (
+	url varchar(500) references post(url),
+	person varchar(500) references blog(url),
+	primary key(url, person)
+);
