@@ -22,7 +22,7 @@ cron <br>
 querystring <br>
 
 
-Sequence Diagram (not done)
+Sequence Diagram
 ---------
 Open file "SequenceDiagram.dia" using Diagram Editor
 
