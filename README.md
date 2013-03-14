@@ -1,9 +1,9 @@
 Team Members
 -------
-Allen <br>
-Henry <br>
-Simon <br>
-Zheng (Lionheart) Xiong    c3xiongz <br>
+Alon Sigal	                998156846 	g1sigal     <br>
+Henry Ku 	                998551348	g2kuhenr    <br>
+Simon Song			                                <br>
+Zheng (Lionheart) Xiong     998182112   c3xiongz    <br>
 
 
 CDF environment
@@ -11,10 +11,16 @@ CDF environment
 greywolf/redwolf <br>
 port:31355 <br>
 
+Additional Modules Installed
+---------
+npm install request <br>
+npm install mysql<br>
+npm install cron<br>
+npm install querystring
 
 Sequence Diagram (not done)
 ---------
-the various components in your system and how they interact (sequence diagram), inputs outputs functions etc
+Open file "SequenceDiagram.dia" using Diagram Editor
 
 Database Diagram
 ------
@@ -53,7 +59,7 @@ Database Diagram
         <td>url</td>
         <td>primary</td>
         <td>char</td>
-        <td>50</td>
+        <td>500</td>
         <td>/</td>
     </tr>
 
@@ -61,7 +67,7 @@ Database Diagram
         <td>blog_url</td>
         <td>not null</td>
         <td>char</td>
-        <td>50</td>
+        <td>500</td>
         <td>/</td>
     </tr>
     
@@ -69,7 +75,7 @@ Database Diagram
         <td>txt</td>
         <td>/</td>
         <td>char</td>
-        <td>50</td>
+        <td>500</td>
         <td>/</td>
     </tr>
     
@@ -77,7 +83,7 @@ Database Diagram
         <td>img</td>
         <td>/</td>
         <td>char</td>
-        <td>50</td>
+        <td>500</td>
         <td>/</td>
     </tr>
     
@@ -89,35 +95,6 @@ Database Diagram
         <td>/</td>
     </tr>
     
-</table>
-
-
-####IMAGE
-
-<table>
-    <tr>
-        <td><b>column</b></td>
-        <td><b>property</b></td>
-        <td><b>type</b></td>
-        <td><b>size limit</b></td>
-        <td><b>reference from</b></td>
-    </tr>
-    
-    <tr>
-        <td>url</td>
-        <td>/</td>
-        <td>char</td>
-        <td>50</td>
-        <td>/</td>
-    </tr>
-    
-    <tr>
-        <td>post</td>
-        <td>/</td>
-        <td>char</td>
-        <td>50</td>
-        <td>POST 'url'</td>
-    </tr>
 </table>
 
 
@@ -152,7 +129,7 @@ Database Diagram
         <td>url</td>
         <td>/</td>
         <td>char</td>
-        <td>50</td>
+        <td>500</td>
         <td>POST 'url'</td>
     </tr>
     
@@ -201,7 +178,7 @@ Database Diagram
         <td>url</td>
         <td>foreign key, not null</td>
         <td>char</td>
-        <td>50</td>
+        <td>500</td>
         <td>POST 'url'</td>
     </tr>
 
@@ -209,7 +186,7 @@ Database Diagram
         <td>person</td>
         <td>foreign key, not null</td>
         <td>char</td>
-        <td>50</td>
+        <td>500</td>
         <td>BLOG 'url'</td>
     </tr>
     
