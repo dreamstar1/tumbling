@@ -48,7 +48,6 @@ mysql.connect(function(error, results) {
 	console.log('Connected to database');
 });
 
-/*************************** FUNCTION FOR DATABASE INTERACTION ***************************/
 function extractData(basename, order, limit, onSuccess, onErr) {
 	if (basename == "") {
 		if (order == "Trending") {
@@ -76,7 +75,7 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 	else if (basename) {
 		if (order == "Trending") {
 			mysql.query("SELECT P.url, P.txt, P.img, P.dt, T.ts, T.seq, T.inc, T.cnt "+
-				    "FROM time_stamp T, (select post.url, post.txt, post.img, post.dt from post, blog, likes where likes.person=blog.url and blog.url='"+basename+"' and likes.url=post.url) P "+
+				    "FROM time_stamp T, (select post.url, post.txt, post.img, post.dt from post, blog, likes where likes.person=blog.url and blog.url="+basename+" likes.url=post.url) P "+
 				    "WHERE T.ts > '"+getTime(1)+"' and T.url=P.url ORDER BY inc DESC LIMIT 0, " + limit ,function (error, results) {
 				if (error) {
 					console.log('Select Error: ' + error.message);
@@ -158,7 +157,18 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 				var vals = getTime() + "', '"
 					 + data.post_url + "', '"
 					 + "0', '0', '" + data.note_count;
+				console.log("insert into " + tbl + " (" + cols +") values ('" + vals + "')");
 				mysql.query("insert into " + tbl + " (" + cols +") values ('" + vals + "')", function (err, results, fields) {
+					if (err) {
+						console.log('Insert Error: ' + error.message);
+						mysql.end();
+					}
+				});
+			}
+			else {
+				var cols = "ts, url, seq, inc, cnt";
+				console.log("insert into " + tbl + " (" + cols +") values ('" + data.toString() + "')");
+ 				mysql.query("insert into " + tbl + " (" + cols +") values ('" + data + "')", function (err, results, fields) {
 					if (err) {
 						console.log('Insert Error: ' + error.message);
 						mysql.end();
@@ -299,7 +309,7 @@ function updateTracking(post_url, count) {
 	var inc = 0;
 	var cnt = count;
 	
-	getMaxSeq(post_url, function (sequence) {seq = sequence + 1;
+	getMaxSeq(post_url, function (sequence) {seq = sequence + 1;console.log(seq);
 											getInc(post_url, seq-1, function(note_count) {
 																						if (seq-1 != 0) {
 																							inc = count - note_count;
@@ -312,6 +322,7 @@ function updateTracking(post_url, count) {
 																							+ "'" + seq + "', "
 																							+ "'" + inc + "', "
 																							+ "'" + cnt;
+																							console.log(vals);
 																							insertDB(TMSTMP_TBL, vals, post_url);
 											}, function(err) {console.log('getInc Error: ' + error.message);});
 	}, function(err) {console.log('getMaxSeq Error: ' + error.message);});
@@ -427,6 +438,35 @@ function deleteUnlike() {
 	});
 }
 
+function updateDBHelper(hostname, count) {
+	var off;
+	for (off = 0; off < count+50; off+=50) {
+		request.get({url:'http://api.tumblr.com/v2/blog/'+hostname+'/likes?api_key='+KEY+'&limit=50&offset='+off, json:true}, function (error, response, body) {
+			if (!error) {
+				var post;
+				// update time_stamp table of existing blogs
+				for (var i=0; i<body.response.liked_count; i++) {
+					post = body.response.liked_posts[i];
+					if (post) {
+						//console.log(post.post_url);
+						updateTracking(post.post_url, post.note_count);
+					}
+				}
+			}
+		}); 
+	}
+}
+
+function getFromAPI(hostname){
+	
+	request.get({url:'http://api.tumblr.com/v2/blog/'+hostname+'/likes?api_key='+KEY+'&limit=51', json:true}, function (error, response, body) {
+		if (!error) {
+		updateDBHelper(hostname, body.response.liked_count);
+		}
+		else{console.log("error in insertlikes"); }
+	});
+}
+
 function updateDB(){
 	//cron to count to 1 hour
 	
@@ -437,18 +477,17 @@ function updateDB(){
 	//post a new post? not a problem
 	//new blog created? not a problem
 
-	gethosts(function(host){
+   gethosts(function(host){
 		var i = 0;
 		while(host[i]){
-			console.log(host[i].url);
+		//console.log(host[i].url);
+		
+			getFromAPI(host[i].url);
 			insertLikes(host[i].url);
 			i++;
-		}
-	}, function(err) {
-		console.log('gethosts Error: ' + error.message);
-	});
+		}}, function(err) {console.log('gethosts Error: ' + error.message);});
 
-	deleteUnlike();
+	//deleteUnlike();
 	//get all, return in array??? Need to be tested
 // 	for (var i = 0; i<blogs.length; i++){
 // 	    var blog = blogs[i].url;
