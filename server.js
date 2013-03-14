@@ -3,6 +3,7 @@ var request = require('./node-v0.8.18-linux-x86/bin/node_modules/request');
 http = require("http");
 qs = require("querystring");
 PORT = 31355;
+url = require("url");
 
 MIME_TYPES ={
 	'.html': 'text/html',
@@ -67,7 +68,6 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 				mysql.end();
 				onErr();
 			}
-				console.log(results);
 				onSuccess(results);
 			});
 		}
@@ -88,7 +88,7 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 		}
 		else if (order == "Recent") {
 			mysql.query("select * " + 
-				    "from time_stamp T, (select P.url, P.txt, P.img, P.dt from blog B, post P, likes L where L.person=B.url and L.url=P.url and B.url="+basename +" order by dt DESC limit 0, "+limit+") D " +
+				    "from time_stamp T, (select P.url, P.txt, P.img, P.dt from blog B, post P, likes L where L.person=B.url and L.url=P.url and B.url='"+basename +"' order by dt DESC limit 0, "+limit+") D " +
 				    "where T.url=D.url order by dt desc, seq desc" ,function (error, results) {
 				if (error) {
 					console.log('Select Error: ' + error.message);
@@ -104,17 +104,12 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 
 function insertDB(tbl, data, hostname, onSuccess, onErr) {
 	if (tbl == BLOG_TBL) {
-		existsInDB(tbl, "url", data, "", function (exists) {
-			if (!exists) {
-				console.log(data + " is inserted into table " + tbl);
 				mysql.query("insert into blog values ('"+data+"')", function (err, results, fields) {
 					if (err) {
 						console.log('Insert Error: ' + error.message);
 						mysql.end();
 					}
 				});
-			}
-		});
 	}
 	else if (tbl == POST_TBL) {
 		existsInDB(tbl, "url", data.post_url, "", function (exists) {
@@ -142,7 +137,8 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 					}
 				});
 			} else {
-				mysql.query("insert into " + LIKES_TBL + " values ('"+data.post_url+", "+hostname+"')", function(err, results, fields) {
+				console.log("insert into " + LIKES_TBL + " values ('"+data.post_url+"', '"+hostname+"')");
+				mysql.query("insert into " + LIKES_TBL + " values ('"+data.post_url+"', '"+hostname+"')", function(err, results, fields) {
 					if (err) {
 						console.log('Insert Error: ' + error.message);
 						mysql.end();
@@ -160,16 +156,6 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 					 + "0', '0', '" + data.note_count;
 					 
 				mysql.query("insert into " + tbl + " (" + cols +") values ('" + vals + "')", function (err, results, fields) {
-					if (err) {
-						console.log('Insert Error: ' + error.message);
-						mysql.end();
-					}
-				});
-			}
-			else {
-				var cols = "ts, url, seq, inc, cnt";
-				console.log("exists in ts");
-				mysql.query("insert into " + tbl + " (" + cols +") values ('" + data + "')", function (err, results, fields) {
 					if (err) {
 						console.log('Insert Error: ' + error.message);
 						mysql.end();
@@ -430,16 +416,19 @@ function updateDB(){
 
 
 http.createServer(function(req, res) {
+	console.log(req.url);
 	if (req.url == '/') {
-		time = {"last": getTime(1), "current": getTime()};
-		res.writeHead(200);
-		res.end(JSON.stringify(time));
+		res.writeHead(200, {
+ 				  'Content-Type': 'application/json', 
+				  'Access-Control-Allow-Origin': '*'
+ 				});
+		res.write('{"order":"Recent", "limit":1,"trending":[]}');
+		res.end();
 	}
 	if (req.method == 'POST') {
 		// parameter: blog
 		//            a string indicating a new blog to track by its {base-hostname}
 		if (req.url == '/blog') {
-			console.log(req.url);
 			
 			var rawData = "";
 			
@@ -450,14 +439,19 @@ http.createServer(function(req, res) {
 			
 			req.on('end', function() {
 				var hostname = qs.parse(rawData).blog;
-				insertBlog(hostname); // tracking blogs
- 				insertLikes(hostname); // post liked by our tracking blogs.
-				// RESPONSE: HTTP status 200 if accepted.
-				res.writeHead(200);
-				res.end();
+				existsInDB(BLOG_TBL, "url", hostname, "", function (exists) {
+					if (!exists) {
+						insertBlog(hostname); // tracking blogs
+						insertLikes(hostname); // post liked by our tracking blogs.
+						// RESPONSE: HTTP status 200 if accepted.
+						res.writeHead(200);
+						res.end();
+					}
+				});
 			});
 		}
-	} else if (req.method == 'GET') {
+	} 
+	if (req.method == 'GET') {
 		// parameter: order as 1st argument of -d in curl
 		//	      "Trending" or "Recent" indicating how to order JSON
 		//	      "Trending" - posts that have the largest increments in note_count in the last hour
@@ -465,67 +459,55 @@ http.createServer(function(req, res) {
 		// parameter: limit (optional) as 2nd argument of -d in curl
 		//	      the maximum number of results to return.
 		// RESPONSE: JSON including trend, or recent info
-		console.log(req.url);
-		var split_url = req.url.split("/");
-		if (req.url == '/blogs/trends') {
-			var data = "";
-			
-			req.on('data', function(buf){
-				data += buf.toString();
-			});
-			
-			var order = "Recent";
+		var url_parts = url.parse(req.url,true);
+		var pathname = url_parts.pathname;
+		var param = url_parts.query;
+		if (pathname == '/blogs/trends') {
 			var limit = 20;
-			req.on('end', function() {
-				var param = qs.parse(data);
-				if (param.order) {
-					order = param.order; // order is always presented
-				  
-				}
-				if (param.limit) {
-				      limit = param.limit; // find limit if exists
-				}
-				getTrendInfo("", order, limit, 2, function(trendinfo) {
-// 					res.end(JSON.stringify(trendinfo));
-					res.writeHead(200);
-//    					console.log(trendinfo);
-					res.end();
-				});
+			order = param.order; // order is always presented
+			if (param.limit) {
+			      limit = param.limit; // find limit if exists
+			}
+			getTrendInfo("", order, limit, 2, function(trendinfo) {
+ 				res.writeHead(200, {
+ 				  'Content-Type': 'application/json', 
+ 				  'Access-Control-Allow-Origin': '*'
+ 				});
+				res.write(JSON.stringify(trendinfo));
+				res.end();
 			});
 		}
 		//return the ordered posts of the specified hostname's likes
 		// _ / blog / hostname/ trends
 		// 0     1        2        3
-		else if (split_url.length == 4) {
-			var bt = split_url[1]+"/"+split_url[3];
+		else if (pathname.split("/").length == 4) {
+			s = pathname.split("/");
+			var bt = s[1]+"/"+s[3];
 			if (bt == "blog/trends") {
-				var hostname = split_url[2];
+				var hostname = s[2];
+				var limit = 20;
+				order = param.order; // order is always presented
+				if (param.limit) {
+				      limit = param.limit; // find limit if exists
+				}
 				existsInDB(BLOG_TBL, "url", hostname, "", function(exist) {
-				  //if the hostname already exist in DB
-					//TODO: implement code to find trend with the hostname
- 					var param;
- 					var data;
- 					req.on('data', function(buf) {
- 						data += buf;
- 					});
- 					var order = "";
- 					var limit = "";
- 					req.on('end', function() {
- 						param = qs.parse(data);
- 						order = param.order; // order is always presented
- 						if (param.length > 1) {
- 						      limit = param.limit; // find limit if exists
- 						}
- 					});
- 					var trendinfo = getTrendInfo(POST_TBL, order, limit, 1);
-					
-					
-					res.writeHead(200);
-					res.end();
-					}, function(err) 
-					//if hostname doesn't exist in DB
-					{console.log("NOPE it doesn't exist");});	  
+					getTrendInfo(hostname, order, limit, 1, function(trendinfo) {
+						res.end(JSON.stringify(trendinfo));
+						res.writeHead(200, {
+						  'Content-Type': 'application/json', 
+						  'Content-Length': trendinfo.length,
+						  'Access-Control-Allow-Origin': '*'
+						});
+						res.write(JSON.stringify(trendinfo));
+						res.end();
+						
+					});
+				});
 			}
+		}
+		else {
+			res.writeHead(404);
+			res.end();
 		}
 	}
 }).listen(PORT);
