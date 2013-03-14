@@ -4,6 +4,7 @@ http = require("http");
 qs = require("querystring");
 PORT = 31355;
 url = require("url");
+var cronJob = require('./node-v0.8.18-linux-x86/bin/node_modules/cron').CronJob;
 
 MIME_TYPES ={
 	'.html': 'text/html',
@@ -26,7 +27,7 @@ var _DATABASE = "csc309h_g2junhee"; // this database? or a2.sql we created?
 // db tables
 var BLOG_TBL = "blog";
 var POST_TBL = "post";
-var IMAGE_TBL = "image";
+var LIKES_TBL = "likes";
 var TMSTMP_TBL = "time_stamp";
 
 // mysql -p -h dbsrv1 -u g2_junhee -p eebiepic csc309h_g2junhee
@@ -51,12 +52,13 @@ mysql.connect(function(error, results) {
 function extractData(basename, order, limit, onSuccess, onErr) {
 	if (basename == "") {
 		if (order == "Trending") {
-			mysql.query("SELECT P.url, P.txt, P.img, P.dt, T.ts, T.seq, T.inc, T.cnt  FROM time_stamp T, post P WHERE T.ts > "+getTime(1)+" and T.url=P.url ORDER BY inc DESC LIMIT 0, " + limit, function (error, results) {
+			mysql.query("select P.url, P.txt, P.img, P.dt, T.ts, T.seq, T.inc, T.cnt from time_stamp T, post P where T.ts > '"+getTime(1)+"' and T.url=P.url order by inc DESC limit 0, " + limit, function (error, results) {
 			if (error) {
 				console.log('Select Error: ' + error.message);
 				mysql.end();
 				onErr();
 			}
+				console.log(results);
 				onSuccess(results);
 			});
 		}
@@ -73,9 +75,9 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 	}
 	else if (basename) {
 		if (order == "Trending") {
-			mysql.query("SELECT P.url, P.txt, P.img, P.dt, T.ts, T.seq, T.inc, T.cnt  "+
-				    "FROM time_stamp T, (select post.url, post.txt, post.img, post.dt from post, blog, likes where likes.person=blog.url and blog.url="+basename+" likes.url=P.url) P"+
-				    "WHERE T.ts > "+getTime(1)+" and T.url=P.url ORDER BY inc DESC LIMIT 0, " + limit ,function (error, results) {
+			mysql.query("SELECT P.url, P.txt, P.img, P.dt, T.ts, T.seq, T.inc, T.cnt "+
+				    "FROM time_stamp T, (select post.url, post.txt, post.img, post.dt from post, blog, likes where likes.person=blog.url and blog.url="+basename+" likes.url=post.url) P "+
+				    "WHERE T.ts > '"+getTime(1)+"' and T.url=P.url ORDER BY inc DESC LIMIT 0, " + limit ,function (error, results) {
 				if (error) {
 					console.log('Select Error: ' + error.message);
 					mysql.end();
@@ -116,17 +118,34 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 				var cols = "url, txt, img, dt";
 				var img = "";
 				if (data.image_permalink) {
-					img = data.image_permalink;
+				img = data.image_permalink;
 				}
-				var vals = data.post_url + "', " 
-				 + "'" + data.slug + "', "
-				 + "'" + img + "', "
-				 + "'" + data.date;
-				 
+				var vals = data.post_url + "', "
+				+ "'" + data.slug + "', "
+				+ "'" + img + "', "
+				+ "'" + data.date;
+
 				mysql.query("insert into " + tbl + " (" + cols + ") values ('" + vals + "')", function (err, results, fields) {
 					if (err) {
 						console.log('Insert Error: ' + error.message);
 						mysql.end();
+					}
+				});
+				mysql.query("insert into " + LIKES_TBL + " values ('"+data.post_url+"', '"+hostname+"')", function(err, results, fields) {
+					if (err) {
+						console.log('Insert Error: ' + error.message);
+						mysql.end();
+					}
+				});
+			} else {
+				existsInDB(LIKES_TBL, "url", data.post_url+"' and person='"+hostname, "", function (exists) {
+					if (!exists) {
+						mysql.query("insert into " + LIKES_TBL + " values ('"+data.post_url+"', '"+hostname+"')", function(err, results, fields) {
+							if (err) {
+								console.log('Insert Error: ' + error.message);
+								mysql.end();
+							}
+						});
 					}
 				});
 			}
@@ -139,7 +158,7 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 				var vals = getTime() + "', '"
 					 + data.post_url + "', '"
 					 + "0', '0', '" + data.note_count;
-					 
+				console.log("insert into " + tbl + " (" + cols +") values ('" + vals + "')");
 				mysql.query("insert into " + tbl + " (" + cols +") values ('" + vals + "')", function (err, results, fields) {
 					if (err) {
 						console.log('Insert Error: ' + error.message);
@@ -443,9 +462,16 @@ function updateDB(){
 /*************************** SERVER THAT WILL HANDLE EACH EVENT ***************************/
 
 
-
+	var job = new cronJob({
+		cronTime: '0 * * * *', //minute hour day month day-of-week
+		onTick: function() {
+			updateDB();
+		},
+		start: true, //or use job.start() outside
+	});
 
 http.createServer(function(req, res) {
+
 	console.log(req.url);
 	if (req.url == '/') {
 		res.writeHead(200, {
@@ -527,10 +553,8 @@ http.createServer(function(req, res) {
 				}
 				existsInDB(BLOG_TBL, "url", hostname, "", function(exist) {
 					getTrendInfo(hostname, order, limit, 1, function(trendinfo) {
-						res.end(JSON.stringify(trendinfo));
 						res.writeHead(200, {
 						  'Content-Type': 'application/json', 
-						  'Content-Length': trendinfo.length,
 						  'Access-Control-Allow-Origin': '*'
 						});
 						res.write(JSON.stringify(trendinfo));
