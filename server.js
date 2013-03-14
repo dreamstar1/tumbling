@@ -18,9 +18,9 @@ var KEY = 'VdAQkUPDY46fUmqRVGqRCY3ncJvrx6SDKAl5bQN7Tw2xZgxeY9';
 var _mysql = require("./node-v0.8.18-linux-x86/bin/node_modules/mysql");
 var _HOST = "dbsrv1.cdf.toronto.edu";
 var _PORT = "3306"; // standard sql PORT
-var _USER = "g2junhee";
-var _PASS = "eebiepic";
-var _DATABASE = "csc309h_g2junhee"; // this database? or a2.sql we created? 
+var _USER = "g2kuhenr";
+var _PASS = "uixifahf";
+var _DATABASE = "csc309h_g2kuhenr"; // this database? or a2.sql we created? 
 											/* we'll have to run a2.sql just 
 											 * once on csc309h_{cdf_user_name} to create the tables */
 // db tables
@@ -243,7 +243,18 @@ function insertLikes(hostname) {
 		else{console.log("error in insertlikes"); }
 	}) 
 }
-
+/* helper of updateDB, finds all hostname
+ */
+function gethosts(onSuccess, onErr) {
+		mysql.query("select url from blog", function (error, results) {
+		if (error) {
+		  console.log('Select hosts Error: ' + error.message);
+		  mysql.end();
+		  onErr();
+		}
+		onSuccess(results);
+	});
+}
 /*
  * updateTracking helper. Get the largest seq value for post
  */
@@ -397,15 +408,20 @@ function updateDB(){
 	//what if someone deletes a post? not a problem cuz API will know
 	//post a new post? not a problem
 	//new blog created? not a problem
-	
 
-	// database param cmd, tbl, field, value, key	
-	var blogs = database("GET", BLOG_TBL, "url", "*");
+   gethosts(function(host){
+     var i = 0;
+      while(host[i]){
+	console.log(host[i].url);
+	insertLikes(host[i].url);
+	i++;
+      }}, function(err) {console.log('gethosts Error: ' + error.message);});
+
 	//get all, return in array??? Need to be tested
-	for (var i = 0; i<blogs.length; i++){
-	    var blog = blogs[i].url;
-	    insertLikes(blog);
-	}
+// 	for (var i = 0; i<blogs.length; i++){
+// 	    var blog = blogs[i].url;
+// 	    insertLikes(blog);
+// 	}
 	
 	
 	//note to Simon: haven't worked on deletion in DB
@@ -452,6 +468,11 @@ http.createServer(function(req, res) {
 		}
 	} 
 	if (req.method == 'GET') {
+		if(req.url == '/update'){
+		  updateDB();
+		  res.writeHead(200);
+		res.end();
+		}
 		// parameter: order as 1st argument of -d in curl
 		//	      "Trending" or "Recent" indicating how to order JSON
 		//	      "Trending" - posts that have the largest increments in note_count in the last hour
