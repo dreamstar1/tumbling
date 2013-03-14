@@ -19,9 +19,9 @@ var KEY = 'VdAQkUPDY46fUmqRVGqRCY3ncJvrx6SDKAl5bQN7Tw2xZgxeY9';
 var _mysql = require("./node-v0.8.18-linux-x86/bin/node_modules/mysql");
 var _HOST = "dbsrv1.cdf.toronto.edu";
 var _PORT = "3306"; // standard sql PORT
-var _USER = "g2junhee";
-var _PASS = "eebiepic";
-var _DATABASE = "csc309h_g2junhee"; // this database? or a2.sql we created? 
+var _USER = "g2kuhenr";
+var _PASS = "uixifahf";
+var _DATABASE = "csc309h_g2kuhenr"; // this database? or a2.sql we created? 
 											/* we'll have to run a2.sql just 
 											 * once on csc309h_{cdf_user_name} to create the tables */
 // db tables
@@ -76,7 +76,7 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 	else if (basename) {
 		if (order == "Trending") {
 			mysql.query("SELECT P.url, P.txt, P.img, P.dt, T.ts, T.seq, T.inc, T.cnt "+
-				    "FROM time_stamp T, (select post.url, post.txt, post.img, post.dt from post, blog, likes where likes.person=blog.url and blog.url="+basename+" likes.url=post.url) P "+
+				    "FROM time_stamp T, (select post.url, post.txt, post.img, post.dt from post, blog, likes where likes.person=blog.url and blog.url='"+basename+"' and likes.url=post.url) P "+
 				    "WHERE T.ts > '"+getTime(1)+"' and T.url=P.url ORDER BY inc DESC LIMIT 0, " + limit ,function (error, results) {
 				if (error) {
 					console.log('Select Error: ' + error.message);
@@ -158,7 +158,6 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 				var vals = getTime() + "', '"
 					 + data.post_url + "', '"
 					 + "0', '0', '" + data.note_count;
-				console.log("insert into " + tbl + " (" + cols +") values ('" + vals + "')");
 				mysql.query("insert into " + tbl + " (" + cols +") values ('" + vals + "')", function (err, results, fields) {
 					if (err) {
 						console.log('Insert Error: ' + error.message);
