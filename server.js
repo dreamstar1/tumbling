@@ -28,7 +28,6 @@ var BLOG_TBL = "blog";
 var POST_TBL = "post";
 var IMAGE_TBL = "image";
 var TMSTMP_TBL = "time_stamp";
-var LIKES_TBL = "likes";
 
 // mysql -p -h dbsrv1 -u g2_junhee -p eebiepic csc309h_g2junhee
 var mysql = _mysql.createConnection({
@@ -128,23 +127,6 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 					if (err) {
 						console.log('Insert Error: ' + error.message);
 						mysql.end();
-					}
-				});
-				mysql.query("insert into " + LIKES_TBL + " values ('"+data.post_url+"', '"+hostname+"')", function(err, results, fields) {
-					if (err) {
-						console.log('Insert Error: ' + error.message);
-						mysql.end();
-					}
-				});
-			} else {
-				existsInDB(LIKES_TBL, "url", data.post_url+"' and person='"+hostname, "", function (exists) {
-					if (!exists) {
-						mysql.query("insert into " + LIKES_TBL + " values ('"+data.post_url+"', '"+hostname+"')", function(err, results, fields) {
-							if (err) {
-								console.log('Insert Error: ' + error.message);
-								mysql.end();
-							}
-						});
 					}
 				});
 			}
@@ -403,6 +385,30 @@ function getTrendInfo(basename, order, limit, method_type , onSuccess) {
 	}
 }
 
+function deleteUnlike() {
+	mysql.query("select * from time_stamp T1 where T1.seq >= (select max(T2.seq) from time_stamp T2 where T1.url=T2.url) and T1.ts < "+getTime(1), function (err, results, fields) {
+		if (err) {
+			console.log("ERROR!"); 
+			mysql.end();
+		}
+		for (var i = 0; i < results.length; i++ ) {
+			mysql.query("delete from time_stamp where url='"+results[i].url+"'", function(err, results, fields) {
+				if (err) {
+					console.log("Error on deleting from time_stamp");
+					mysql.end();
+				}
+			});
+			mysql.query("delete from post where url='"+results[i].url+"'", function(err, results, fields) {
+				if (err) {
+					console.log("Error on deleting from time_stamp");
+					mysql.end();
+				}
+			});
+		}
+		
+	});
+}
+
 function updateDB(){
 	//cron to count to 1 hour
 	
@@ -424,6 +430,7 @@ function updateDB(){
 		console.log('gethosts Error: ' + error.message);
 	});
 
+	deleteUnlike();
 	//get all, return in array??? Need to be tested
 // 	for (var i = 0; i<blogs.length; i++){
 // 	    var blog = blogs[i].url;
