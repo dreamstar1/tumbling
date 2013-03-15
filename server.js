@@ -122,7 +122,7 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 				+ "'" + data.slug + "', "
 				+ "'" + img + "', "
 				+ "'" + data.date;
-
+				CONSOLE.LOG("INSERT " +tbl +" with "+cols+" values "+vals);
 				mysql.query("insert into " + tbl + " (" + cols + ") values ('" + vals + "')", function (err, results, fields) {
 					if (err) {
 						console.log('Insert Error: ' + error.message);
@@ -456,11 +456,8 @@ function deleteUnlike() {
 		if (results) {
 			for (var i = 0; i < results.length; i++ ) {
 				deleteDB(LIKES_TBL, results[i].url, results[i].person, function(lurl) {
-					console.log(lurl);
 					deleteDB(TMSTMP_TBL, lurl, "", function (turl) {
-						console.log(turl);
 						checkEmptyLikes(turl, function (purl) {
-							console.log(purl);
 							if (purl) {
 								deleteDB(POST_TBL, purl, "", function(i) {console.log("deletion complete");});
 							}
@@ -534,9 +531,8 @@ function updateDB(){
 /*************************** SERVER THAT WILL HANDLE EACH EVENT ***************************/
 
 var job = new cronJob({
-	cronTime: '*/5 * * * *', //minute hour day month day-of-week
+	cronTime: '0 * * * *', //minute hour day month day-of-week
 	onTick: function() {
-		console.log("we are in cron");
 		console.log("update");
 		updateDB();
 		setTimeout(function() {console.log("delete");deleteUnlike();}, 300000);
