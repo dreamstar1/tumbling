@@ -2,7 +2,7 @@ var sys = require("sys");
 var request = require('./node-v0.8.18-linux-x86/bin/node_modules/request');
 http = require("http");
 qs = require("querystring");
-PORT = 31355;
+PORT = 31365;
 url = require("url");
 var cronJob = require('./node-v0.8.18-linux-x86/bin/node_modules/cron').CronJob;
 
@@ -19,9 +19,9 @@ var KEY = 'VdAQkUPDY46fUmqRVGqRCY3ncJvrx6SDKAl5bQN7Tw2xZgxeY9';
 var _mysql = require("./node-v0.8.18-linux-x86/bin/node_modules/mysql");
 var _HOST = "dbsrv1.cdf.toronto.edu";
 var _PORT = "3306"; // standard sql PORT
-var _USER = "g2kuhenr";
-var _PASS = "uixifahf";
-var _DATABASE = "csc309h_g2kuhenr"; // this database? or a2.sql we created? 
+var _USER = "g2junhee";
+var _PASS = "eebiepic";
+var _DATABASE = "csc309h_g2junhee"; // this database? or a2.sql we created? 
 											/* we'll have to run a2.sql just 
 											 * once on csc309h_{cdf_user_name} to create the tables */
 // db tables
@@ -57,7 +57,6 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 				mysql.end();
 				onErr();
 			}
-				console.log(results);
 				onSuccess(results);
 			});
 		}
@@ -136,6 +135,7 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 						mysql.end();
 					}
 				});
+				onSuccess(0, data, hostname);
 			} else {
 				existsInDB(LIKES_TBL, "url", data.post_url+"' and person='"+hostname, "", function (exists) {
 					if (!exists) {
@@ -147,6 +147,7 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 						});
 					}
 				});
+				onSuccess(1, data, hostname);
 			}
 		});
 	}
@@ -157,7 +158,6 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 				var vals = getTime() + "', '"
 					 + data.post_url + "', '"
 					 + "0', '0', '" + data.note_count;
-				console.log("insert into " + tbl + " (" + cols +") values ('" + vals + "')");
 				mysql.query("insert into " + tbl + " (" + cols +") values ('" + vals + "')", function (err, results, fields) {
 					if (err) {
 						console.log('Insert Error: ' + error.message);
@@ -167,8 +167,9 @@ function insertDB(tbl, data, hostname, onSuccess, onErr) {
 			}
 			else {
 				var cols = "ts, url, seq, inc, cnt";
-				console.log("insert into " + tbl + " (" + cols +") values ('" + data.toString() + "')");
- 				mysql.query("insert into " + tbl + " (" + cols +") values ('" + data + "')", function (err, results, fields) {
+				var vals = getTime() + "', '"
+					 + data.post_url + "', '" + data.seq + "', '" + data.inc + "', '" + data.note_count;
+ 				mysql.query("insert into " + tbl + " (" + cols +") values ('" + vals + "')", function (err, results, fields) {
 					if (err) {
 						console.log('Insert Error: ' + error.message);
 						mysql.end();
@@ -186,7 +187,7 @@ function existsInDB(tbl, field, value, key, onSuccess, onErr) {
 			mysql.end();
 			onErr();
 		}
-		onSuccess(results[0].exist);
+		onSuccess(results[0].exist, key);
 	});
 	
 }
@@ -208,7 +209,7 @@ function insertBlog(hostname) {
 function getTime(lastHour){
 	var currentdate = new Date();
 	if (lastHour) {
-		currentdate.setHours(currentdate.getHours() - 1);
+		currentdate.setMinutes(currentdate.getMinutes() - 5);
 	}
 	var datetime = currentdate.getFullYear() + "-" + checknumber(currentdate.getMonth()+1) + "-" + checknumber(currentdate.getDate()) + " "
 		      + currentdate.getHours() + ":"  
@@ -233,11 +234,14 @@ function insertLikesHelper(hostname, count) {
 				var vals;
 				var pcols = "url, blog_url, txt, img, dt";
 				var tcols = "ts, url, seq, inc, cnt";
-				for (var i=0; i<body.response.liked_count; i++) {
+				for (var i=0; i<50; i++) {
 					post = body.response.liked_posts[i];
 					if (post) {
-						insertDB(POST_TBL, post, hostname);
-						insertDB(TMSTMP_TBL, post, hostname);
+						insertDB(POST_TBL, post, hostname, function(exists, p, hn) {
+							if(!exists) {
+								insertDB(TMSTMP_TBL, p, hn);
+							}
+						});
 					}
 				}
 			}
@@ -251,7 +255,6 @@ function insertLikesHelper(hostname, count) {
 function insertLikes(hostname) {
 	request.get({url:'http://api.tumblr.com/v2/blog/'+hostname+'/likes?api_key='+KEY+'&limit=51', json:true}, function (error, response, body) {
 		if (!error) {
-		  console.log(body.response.liked_count);
 			insertLikesHelper(hostname, body.response.liked_count);
 		}
 		else{console.log("error in insertlikes"); }
@@ -266,7 +269,8 @@ function gethosts(onSuccess, onErr) {
 		  mysql.end();
 		  onErr();
 		}
-		onSuccess(results);
+		if(results) { onSuccess(results); }
+		else {onSuccess(0); }
 	});
 }
 /*
@@ -300,31 +304,26 @@ function getInc(post_url, seq, onSuccess, onErr) {
 /*
  * Update time_stamp table
  */
-function updateTracking(post_url, count) {
-	var vals;
-	
-	var ts = getTime();
-	var url = post_url;
+function updateTracking(data) {
 	var seq = 0;
 	var inc = 0;
-	var cnt = count;
-	
-	getMaxSeq(post_url, function (sequence) {seq = sequence + 1;console.log(seq);
-											getInc(post_url, seq-1, function(note_count) {
-																						if (seq-1 != 0) {
-																							inc = count - note_count;
-																						} else {
-																							inc = 0;
-																						}
-																						
-																							vals = ts + "', "
-																							+ "'" + url + "', "
-																							+ "'" + seq + "', "
-																							+ "'" + inc + "', "
-																							+ "'" + cnt;
-																							console.log(vals);
-																							insertDB(TMSTMP_TBL, vals, post_url);
-											}, function(err) {console.log('getInc Error: ' + error.message);});
+	var post = {"ts":"", "post_url":"", "seq":0, "inc":0, "note_count":0};
+	post.post_url = data.post_url;
+	getMaxSeq(data.post_url, 
+		function (sequence) {
+			post.seq = sequence + 1;
+			getInc(data.post_url, post.seq-1, function(note_count) {
+				if (seq-1 != 0) {
+					post.inc = data.note_count - note_count;
+					post.note_count = data.note_count;
+				} else {
+					post.inc = 0;
+				}
+// 				console.log(post);
+				insertDB(TMSTMP_TBL, post, "");
+			}, function(err) {
+				console.log('getInc Error: ' + error.message);
+			});
 	}, function(err) {console.log('getMaxSeq Error: ' + error.message);});
 }
 
@@ -414,59 +413,109 @@ function getTrendInfo(basename, order, limit, method_type , onSuccess) {
 	}
 }
 
+function deleteDB(tbl, url, person, onSuccess) {
+	if (tbl == LIKES_TBL) {
+		mysql.query("delete from "+tbl+" where url='"+url+"' and person='"+person+"'", function(err, results, fields) {
+			if (err) {
+				console.log("Error on deleting from time_stamp");
+				mysql.end();
+			}
+			onSuccess(url);
+		});
+	}
+	else {
+		mysql.query("delete from "+tbl+" where url='"+url+"'", function(err, results, fields) {
+			if (err) {
+				console.log("Error on deleting from time_stamp");
+				mysql.end();
+			}
+			onSuccess(url);
+		});
+	}
+}
+
+function checkEmptyLikes(url, onSuccess) {
+	mysql.query("select * from likes where likes.url='"+url+"'", function (err, results, fields) {
+		if (err) {
+			console.log("Error while checking likes is empty with url");
+			mysql.end();
+		}
+		if (results) {
+			onSuccess(url);
+		}
+	});
+}
+
 function deleteUnlike() {
-	mysql.query("select * from time_stamp T1 where T1.seq >= (select max(T2.seq) from time_stamp T2 where T1.url=T2.url) and T1.ts < "+getTime(1), function (err, results, fields) {
+	mysql.query("select T1.url, L.person, T1.ts from time_stamp T1, likes L where T1.url=L.url and T1.seq >= (select max(T2.seq) from time_stamp T2 where T1.url=T2.url) and T1.ts < '"+getTime(1)+"'", function (err, results, fields) {
 		if (err) {
 			console.log("ERROR!"); 
 			mysql.end();
 		}
-		for (var i = 0; i < results.length; i++ ) {
-			mysql.query("delete from time_stamp where url='"+results[i].url+"'", function(err, results, fields) {
-				if (err) {
-					console.log("Error on deleting from time_stamp");
-					mysql.end();
-				}
-			});
-			mysql.query("delete from post where url='"+results[i].url+"'", function(err, results, fields) {
-				if (err) {
-					console.log("Error on deleting from time_stamp");
-					mysql.end();
-				}
-			});
+		if (results) {
+			for (var i = 0; i < results.length; i++ ) {
+				deleteDB(LIKES_TBL, results[i].url, results[i].person, function(lurl) {
+					console.log(lurl);
+					deleteDB(TMSTMP_TBL, lurl, "", function (turl) {
+						console.log(turl);
+						checkEmptyLikes(turl, function (purl) {
+							console.log(purl);
+							if (purl) {
+								deleteDB(POST_TBL, purl, "", function(i) {console.log("deletion complete");});
+							}
+						});
+					});
+				});
+			}
 		}
-		
 	});
 }
 
-function updateDBHelper(hostname, count) {
+function updateDBHelper(hostname, count, onSuccess) {
 	var off;
 	for (off = 0; off < count+50; off+=50) {
 		request.get({url:'http://api.tumblr.com/v2/blog/'+hostname+'/likes?api_key='+KEY+'&limit=50&offset='+off, json:true}, function (error, response, body) {
 			if (!error) {
 				var post;
 				// update time_stamp table of existing blogs
-				for (var i=0; i<body.response.liked_count; i++) {
+				for (var i=0; i < 50; i++) {
 					post = body.response.liked_posts[i];
 					if (post) {
-						//console.log(post.post_url);
-						updateTracking(post.post_url, post.note_count);
+						existsInDB(TMSTMP_TBL, "url", post.post_url, post, function(exists, data){
+							if (exists) {
+								updateTracking(data);
+							}
+						});
 					}
 				}
 			}
 		}); 
 	}
+	onSuccess(1);
 }
 
-function getFromAPI(hostname){
+function getFromAPI(hostname, onSuccess){
 	
 	request.get({url:'http://api.tumblr.com/v2/blog/'+hostname+'/likes?api_key='+KEY+'&limit=51', json:true}, function (error, response, body) {
 		if (!error) {
-		updateDBHelper(hostname, body.response.liked_count);
+			updateDBHelper(hostname, body.response.liked_count, 
+				function (good) {
+					onSuccess(hostname);
+			        });
 		}
 		else{console.log("error in insertlikes"); }
 	});
 }
 
+function updateLike(host) {
+	if (host) {
+		for (var i = 0; i < host.length; i++) {
+		      getFromAPI(host[i].url, function(hostname){
+			      if (hostname) { insertLikes(hostname); }
+		      });
+		}
+	} else { console.log("We are not tracking any blogger"); }
+}
 function updateDB(){
 	//cron to count to 1 hour
 	
@@ -476,47 +525,34 @@ function updateDB(){
 	//what if someone deletes a post? not a problem cuz API will know
 	//post a new post? not a problem
 	//new blog created? not a problem
-
-   gethosts(function(host){
-		var i = 0;
-		while(host[i]){
-		//console.log(host[i].url);
-		
-			getFromAPI(host[i].url);
-			insertLikes(host[i].url);
-			i++;
-		}}, function(err) {console.log('gethosts Error: ' + error.message);});
-
-	//deleteUnlike();
-	//get all, return in array??? Need to be tested
-// 	for (var i = 0; i<blogs.length; i++){
-// 	    var blog = blogs[i].url;
-// 	    insertLikes(blog);
-// 	}
-	
-	
-	//note to Simon: haven't worked on deletion in DB
+	gethosts(function(host){
+		updateLike(host);
+	}, function(err) {console.log('gethosts Error: ' + error.message);});
 }
+
 /*************************** SERVER THAT WILL HANDLE EACH EVENT ***************************/
 
-
-	var job = new cronJob({
-		cronTime: '0 * * * *', //minute hour day month day-of-week
-		onTick: function() {
-			updateDB();
-		},
-		start: true, //or use job.start() outside
-	});
+var job = new cronJob({
+	cronTime: '*/5 * * * *', //minute hour day month day-of-week
+	onTick: function() {
+		console.log("we are in cron");
+		console.log("update");
+		updateDB();
+		setTimeout(function() {console.log("delete");deleteUnlike();}, 120000);
+	},
+	start: true, //or use job.start() outside
+});
 
 http.createServer(function(req, res) {
 
 	console.log(req.url);
 	if (req.url == '/') {
+		var msg = "This is CSC309H1 winter 2013 class Assignment 2";
 		res.writeHead(200, {
  				  'Content-Type': 'application/json', 
 				  'Access-Control-Allow-Origin': '*'
  				});
-		res.write('{"order":"Recent", "limit":1,"trending":[]}');
+		res.write(msg);
 		res.end();
 	}
 	if (req.method == 'POST') {
@@ -547,9 +583,13 @@ http.createServer(function(req, res) {
 	} 
 	if (req.method == 'GET') {
 		if(req.url == '/update'){
-		  updateDB();
-		  res.writeHead(200);
-		res.end();
+			updateDB();
+			res.writeHead(200);
+			res.end();
+		} else if (req.url == '/delete'){
+			deleteUnlike();
+			res.writeHead(200);
+			res.end();
 		}
 		// parameter: order as 1st argument of -d in curl
 		//	      "Trending" or "Recent" indicating how to order JSON
@@ -609,4 +649,4 @@ http.createServer(function(req, res) {
 	}
 }).listen(PORT);
 
-console.log('Server running at http://127.0.0.1:' + PORT +'/');
+console.log('Server running at http://greywolf.cdf.toronto.edu:' + PORT +'/');
