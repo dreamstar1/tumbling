@@ -57,7 +57,7 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 				mysql.end();
 				onErr();
 			}
-				onSuccess(results);
+			if (results){ onSuccess(results); }
 			});
 		}
 		else if (order == "Recent") {
@@ -67,7 +67,7 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 				mysql.end();
 				onErr();
 			}
-				onSuccess(results);
+			if (results){ onSuccess(results); }
 			});
 		}
 	}
@@ -81,7 +81,7 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 					mysql.end();
 					onErr();
 				}
-				onSuccess(results);
+				if (results){ onSuccess(results); }
 			});
 			
 		}
@@ -94,7 +94,7 @@ function extractData(basename, order, limit, onSuccess, onErr) {
 					mysql.end();
 					onErr();
 				}
-				onSuccess(results);
+				if (results){ onSuccess(results); }
 			});
 		  
 		}
@@ -187,7 +187,7 @@ function existsInDB(tbl, field, value, key, onSuccess, onErr) {
 			mysql.end();
 			onErr();
 		}
-		onSuccess(results[0].exist, key);
+		if (results){ onSuccess(results[0].exist, key); }
 	});
 	
 }
@@ -209,7 +209,8 @@ function insertBlog(hostname) {
 function getTime(lastHour){
 	var currentdate = new Date();
 	if (lastHour) {
-		currentdate.setMinutes(currentdate.getMinutes() - 5);
+		currentdate.setHours(currentdate.getHours() - 1);
+		currentdate.setMinutes(currentdate.getMinutes() - 10);
 	}
 	var datetime = currentdate.getFullYear() + "-" + checknumber(currentdate.getMonth()+1) + "-" + checknumber(currentdate.getDate()) + " "
 		      + currentdate.getHours() + ":"  
@@ -538,7 +539,7 @@ var job = new cronJob({
 		console.log("we are in cron");
 		console.log("update");
 		updateDB();
-		setTimeout(function() {console.log("delete");deleteUnlike();}, 120000);
+		setTimeout(function() {console.log("delete");deleteUnlike();}, 300000);
 	},
 	start: true, //or use job.start() outside
 });
